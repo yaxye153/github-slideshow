@@ -4,7 +4,7 @@ require_once __DIR__ . '/../auth/auth_check.php';
 
 $date = get_date('date', date('Y-m-d'));
 $pl = profit_and_loss($pdo, $date, $date);
-$otherExpenses = $pl['by_source']['manual'] + $pl['by_source']['monthly_running'];
+$otherExpenses = $pl['by_source']['manual'] + $pl['by_source']['monthly_running'] + $pl['by_source']['asset'];
 
 $pageTitle = 'Daily Report';
 require __DIR__ . '/../includes/header.php';
@@ -33,6 +33,7 @@ require __DIR__ . '/../includes/header.php';
         <tr><td class="ps-4">Salary</td><td class="money"><?= money($pl['by_source']['salary']) ?></td></tr>
         <tr><td class="ps-4">Delivery Cost</td><td class="money"><?= money($pl['by_source']['delivery']) ?></td></tr>
         <tr><td class="ps-4">Daily Running Cost</td><td class="money"><?= money($pl['by_source']['daily_running']) ?></td></tr>
+        <tr><td class="ps-4">Stock Purchases</td><td class="money"><?= money($pl['by_source']['stock']) ?></td></tr>
         <tr><td class="ps-4">Other expenses (incl. monthly costs paid today)</td><td class="money"><?= money($otherExpenses) ?></td></tr>
         <tr class="fs-5 fw-bold"><th>Net <?= $pl['profit'] < 0 ? 'Loss' : 'Profit' ?> <?= profit_label($pl['profit']) ?></th>
             <td class="money <?= $pl['profit'] < 0 ? 'text-loss' : 'text-profit' ?>"><?= money($pl['profit']) ?></td></tr>

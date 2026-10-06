@@ -56,6 +56,7 @@ require __DIR__ . '/../includes/header.php';
 </div>
 <div class="alert alert-info small" style="max-width: 760px">
     Do not enter here: <b>salaries</b> (use <a href="../salaries/index.php">Salaries</a>), <b>delivery costs</b> (use <a href="../delivery/index.php">Delivery</a>),
+    <b>stock purchases</b> (use <a href="../stock/index.php">Stock</a>), assets bought in <a href="../assets/index.php">Company Assets</a>,
     or costs already entered in <a href="../daily-running/index.php">Daily Running</a> / <a href="../monthly-running/index.php">Monthly Running</a>.
     Those are added to expenses automatically, so entering them again would count them twice.
 </div>

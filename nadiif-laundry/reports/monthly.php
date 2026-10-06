@@ -40,6 +40,8 @@ require __DIR__ . '/../includes/header.php';
         <tr><td class="ps-4">Total Delivery Cost</td><td class="money"><?= money($pl['by_source']['delivery']) ?></td></tr>
         <tr><td class="ps-4">Total Daily Running Cost</td><td class="money"><?= money($pl['by_source']['daily_running']) ?></td></tr>
         <tr><td class="ps-4">Total Monthly Running Cost</td><td class="money"><?= money($pl['by_source']['monthly_running']) ?></td></tr>
+        <tr><td class="ps-4">Total Stock Purchases</td><td class="money"><?= money($pl['by_source']['stock']) ?></td></tr>
+        <tr><td class="ps-4">Asset Purchases</td><td class="money"><?= money($pl['by_source']['asset']) ?></td></tr>
         <tr><td class="ps-4">Other Expenses</td><td class="money"><?= money($pl['by_source']['manual']) ?></td></tr>
         <tr class="fs-5 fw-bold"><th>Net <?= $pl['profit'] < 0 ? 'Loss' : 'Profit' ?> <?= profit_label($pl['profit']) ?></th>
             <td class="money <?= $pl['profit'] < 0 ? 'text-loss' : 'text-profit' ?>"><?= money($pl['profit']) ?></td></tr>

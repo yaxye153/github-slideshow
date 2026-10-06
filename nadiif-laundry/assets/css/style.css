@@ -95,6 +95,17 @@ body { background: var(--page-bg); }
 .install-steps .step.done { background: #d1e7dd; color: #0f5132; }
 .install-steps .step.current { background: var(--brand); color: #fff; }
 
+/* ---------- Dashboard ---------- */
+.dash-hero { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center;
+    padding: 1.25rem 1.5rem; border-radius: .75rem; color: #fff; background: linear-gradient(135deg, var(--brand-dark), var(--brand)); }
+.dash-hero .btn-light { color: var(--brand-dark); font-weight: 600; }
+.dash-panel .card-header { background: var(--head-bg); border-bottom: 3px solid var(--brand); }
+.dash-panel.ready .card-header { border-bottom-color: #ffc107; }
+.dash-order { padding: .65rem .75rem; border-radius: .5rem; border: 1px solid rgba(0, 0, 0, .08); margin-bottom: .5rem; background: var(--bs-body-bg); }
+.dash-order:hover { border-color: var(--brand); }
+.min-w-0 { min-width: 0; }
+.order-card.border-warning { border-width: 2px; }
+
 /* ---------- Order tracking ---------- */
 .track-steps { display: flex; gap: 4px; flex-wrap: wrap; }
 .track-steps .step { flex: 1 1 0; min-width: 62px; text-align: center; font-size: .72rem; padding: .35rem .2rem; border-radius: .35rem;

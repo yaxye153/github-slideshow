@@ -33,34 +33,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'business') {
     }
 }
 
-// ----- Save service speeds and customer levels -----
+// ----- Save packages, customer levels and the customer message -----
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'speeds') {
     $values = [];
-    foreach (['normal' => 'Normal', 'express' => 'Express', 'vip' => 'VIP'] as $key => $label) {
+    foreach (['normal' => 'Normal', 'silver' => 'Silver', 'gold' => 'Gold'] as $key => $label) {
         $hours = trim((string)($_POST['speed_' . $key . '_hours'] ?? ''));
-        $percent = trim((string)($_POST['speed_' . $key . '_percent'] ?? ''));
         if (!ctype_digit($hours) || (int)$hours < 1 || (int)$hours > 720) {
             $errors[] = $label . ': hours must be a whole number from 1 to 720.';
         }
-        if (!is_numeric($percent) || (float)$percent < 0 || (float)$percent > 500) {
-            $errors[] = $label . ': extra charge must be from 0 to 500 %.';
-        }
         $values['speed_' . $key . '_hours'] = (string)(int)$hours;
-        $values['speed_' . $key . '_percent'] = (string)round((float)$percent, 2);
     }
-    foreach (['normal' => 'Normal', 'silver' => 'Silver', 'gold' => 'Gold'] as $key => $label) {
+    foreach (['standard' => 'Standard', 'premium' => 'Premium', 'vip' => 'VIP'] as $key => $label) {
         $discount = trim((string)($_POST['tier_' . $key . '_discount'] ?? ''));
         if (!is_numeric($discount) || (float)$discount < 0 || (float)$discount > 100) {
             $errors[] = $label . ' customers: discount must be from 0 to 100 %.';
         }
         $values['tier_' . $key . '_discount'] = (string)round((float)$discount, 2);
     }
+    $values['ready_message'] = post_text('ready_message', 500);
+    $values['country_code'] = preg_replace('/\D/', '', post_text('country_code', 5));
+    if ($values['ready_message'] === '') {
+        $errors[] = 'Please write the "order is ready" message.';
+    }
+    if ($values['country_code'] === '') {
+        $errors[] = 'Please enter the country code (Somalia: 252).';
+    }
     if (!$errors) {
         require_csrf('settings/index.php');
         foreach ($values as $key => $value) {
             save_setting($pdo, $key, $value);
         }
-        flash('success', 'Service speeds and customer levels saved. They apply to NEW orders only.');
+        flash('success', 'Packages, customer levels and message saved. They apply to NEW orders only.');
         redirect('settings/index.php#speeds');
     }
 }
@@ -171,27 +174,26 @@ require __DIR__ . '/../includes/header.php';
 <div class="row g-3 mt-1" id="speeds">
     <div class="col-12">
         <form method="post" class="card shadow-sm">
-            <div class="card-header bg-white"><strong>Service Speed &amp; Customer Levels</strong></div>
+            <div class="card-header bg-white"><strong>Packages, Customer Levels &amp; Customer Message</strong></div>
             <div class="card-body">
                 <?= csrf_field() ?><input type="hidden" name="action" value="speeds">
                 <div class="row g-4">
                     <div class="col-lg-7">
-                        <h3 class="h6">Service speed (how fast the order is ready)</h3>
+                        <h3 class="h6">Packages (how fast the order is ready)</h3>
                         <div class="table-responsive"><table class="table table-sm align-middle mb-0">
-                            <thead><tr><th>Speed</th><th>Ready in (hours)</th><th>Extra charge (%)</th></tr></thead>
-                            <?php foreach (['normal' => 'Normal', 'express' => 'Express', 'vip' => 'VIP'] as $key => $label): ?>
+                            <thead><tr><th>Package</th><th>Ready in (hours)</th></tr></thead>
+                            <?php foreach (['normal' => 'Normal', 'silver' => 'Silver', 'gold' => 'Gold'] as $key => $label): ?>
                                 <tr><td><?= speed_badge($label) ?></td>
-                                    <td><input class="form-control form-control-sm" type="number" min="1" max="720" step="1" name="speed_<?= $key ?>_hours" value="<?= e($s['speed_' . $key . '_hours']) ?>" required></td>
-                                    <td><input class="form-control form-control-sm" type="number" min="0" max="500" step="0.01" name="speed_<?= $key ?>_percent" value="<?= e($s['speed_' . $key . '_percent']) ?>" required></td></tr>
+                                    <td><input class="form-control form-control-sm" type="number" min="1" max="720" step="1" name="speed_<?= $key ?>_hours" value="<?= e($s['speed_' . $key . '_hours']) ?>" required></td></tr>
                             <?php endforeach; ?>
                         </table></div>
-                        <div class="form-text">Example: Express 24 hours +50% means a $10 order costs $15 and must be ready in 24 hours.</div>
+                        <div class="form-text">Example: Normal 48 (2 days), Silver 12, Gold 4. Each package has its own prices in the <a href="prices.php">Price List</a>.</div>
                     </div>
                     <div class="col-lg-5">
                         <h3 class="h6">Customer levels (automatic discount)</h3>
                         <table class="table table-sm align-middle mb-0">
                             <thead><tr><th>Level</th><th>Discount (%)</th></tr></thead>
-                            <?php foreach (['normal' => 'Normal', 'silver' => 'Silver', 'gold' => 'Gold'] as $key => $label): ?>
+                            <?php foreach (['standard' => 'Standard', 'premium' => 'Premium', 'vip' => 'VIP'] as $key => $label): ?>
                                 <tr><td><?= tier_badge($label) ?></td>
                                     <td><input class="form-control form-control-sm" type="number" min="0" max="100" step="0.01" name="tier_<?= $key ?>_discount" value="<?= e($s['tier_' . $key . '_discount']) ?>" required></td></tr>
                             <?php endforeach; ?>
@@ -199,7 +201,16 @@ require __DIR__ . '/../includes/header.php';
                         <div class="form-text">Choose the level of each customer in the customer form.</div>
                     </div>
                     <div class="col-12">
-                        <button class="btn btn-primary" type="submit"><i class="bi bi-check-lg"></i> Save Speeds &amp; Levels</button>
+                        <h3 class="h6">Message to the customer when the order is ready (WhatsApp / SMS)</h3>
+                        <div class="row g-2">
+                            <div class="col-md-9"><textarea class="form-control" name="ready_message" rows="2" maxlength="500" required><?= e($s['ready_message']) ?></textarea>
+                                <div class="form-text">You can use: {customer} {order} {balance} {total} {shelf} {business} {phone}</div></div>
+                            <div class="col-md-3"><label class="form-label small mb-1">Country code</label><input class="form-control" name="country_code" value="<?= e($s['country_code']) ?>" maxlength="5" required>
+                                <div class="form-text">Somalia: 252 (0615... becomes +252615...)</div></div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <button class="btn btn-primary" type="submit"><i class="bi bi-check-lg"></i> Save Packages, Levels &amp; Message</button>
                         <small class="text-muted ms-2">Changes apply to new orders only. Old orders keep their price.</small>
                     </div>
                 </div>

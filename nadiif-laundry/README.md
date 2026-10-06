@@ -32,8 +32,11 @@ To reinstall on purpose, delete `config/installed.lock`. Your existing data is *
 
 | Menu | What it is for |
 |---|---|
-| **Dashboard** | Today's, this month's and this year's income, expenses and profit/loss; order counts by status; outstanding balance; this month's business costs |
-| **Order Tracking** | Pick a customer, or search by phone, name, order number or shelf. You see how many of their orders are in the shop, the **shelf number** of each one, and where it is now: Received → Washing → Drying → Ironing → Ready → Delivered. **Move to next step** and the shelf number can be changed with one tap. VIP and Express orders come first, and **OVERDUE** orders are marked in red |
+| **Dashboard** | Shows only what needs action: **New Orders** (with a *Start washing* button) and **Ready Orders** (*Tell customer* on WhatsApp, *Send out*, *Picked up / Delivered*). It also shows counts (new, in work, ready, on the way, late) and alarms for security, email backup and stock. Money totals are in Profit & Loss and Reports |
+| **Order Tracking (two kinds)** | **1. Work:** Received → Washing → Drying → Ironing → Ready. **2. Handover:** Ready → Out for Delivery → Delivered (delivery orders), or Ready → Picked up (pickup orders), with the name of the person who received it. Every step is saved with **who and when** (*Order Trace* on the order page). **WhatsApp / SMS** buttons open the message "your order is ready" already written; staff only press Send |
+| **Order Tracking (details)** | Pick a customer, or search by phone, name, order number or shelf. You see how many of their orders are in the shop, the **shelf number** of each one, and where it is now: Received → Washing → Drying → Ironing → Ready → (Out for Delivery) → Delivered. **Move to next step** and the shelf number can be changed with one tap. Gold and Silver orders come first, and **OVERDUE** orders are marked in red |
+| **Stock** | Detergent, soap, starch and other supplies. **Buy Stock:** quantity, total cost, vendor and **expiry date** for each purchase; the cost goes into Expenses automatically. **Use Stock:** taken from the purchase that expires first. **Alarms:** low stock, expired, expiring within 30 days. They appear as a red number in the menu, on the dashboard, and as a computer pop-up if allowed. Also: **Vendors**, purchase history, usage history |
+| **Company Assets** | Shelves, computers, printers, machines, vehicles, furniture: code, location, serial number, purchase date and cost, condition. Optionally the cost is recorded as an expense. Shelves you add appear as choices for the order's shelf number, and each shelf shows how many orders are on it |
 | **Customers** | Add, edit, view, search (name, phone, customer ID or code) and delete customers. *View* shows the customer's history: total orders, spent, paid, outstanding balance and every order |
 | **Laundry Orders** | **New Order** → choose a customer, add items (Item × Qty × Service × Price), and optionally enter the amount paid now. Totals update as you type. Search by order number, customer name, phone, date and status. Change the status from the order page. Print the receipt |
 | **Payments** | Record payments for orders. A payment can't be more than the balance. Each payment goes into Income automatically |
@@ -46,20 +49,19 @@ To reinstall on purpose, delete `config/installed.lock`. Your existing data is *
 | **Profit & Loss** | Daily, weekly, monthly, yearly or custom dates: Gross Income − Expenses = Net **PROFIT** or **LOSS** |
 | **Reports** | Daily, monthly and yearly summary reports, plus 13 detailed reports. Each one has a date filter, search, Print / PDF and CSV export |
 | **Backup & Restore** | Create, download, delete and restore backups |
-| **Users** (admin) | Add as many users as you need. For each one choose **Staff** (only the sections you tick: Customers, Orders, Payments, Income, Expenses, Salaries, Delivery, Running costs, Reports, money totals on the Dashboard) or **Administrator** (everything). Switch users off or remove them. A user who is switched off is logged out immediately |
-| **Security & Footprints** (admin) | **Security Report:** hacking attempts, failed and blocked logins, forbidden pages, delete attempts, dangerous backup files, suspicious IP addresses, and **visits** (how many times the system was opened, by which user, which pages, per day). **Footprints:** every save, edit, payment, delete, login and logout, with user, time, IP and result. Both can be printed and exported as CSV |
+| **Users** (admin) | Add as many users as you need. For each one choose **Staff** (only the sections you tick: Customers, Orders, Payments, Income, Expenses, Salaries, Delivery, Running costs, Stock, Company Assets, Reports) or **Administrator** (everything). Switch users off or remove them. A user who is switched off is logged out immediately |
+| **Security Report**, **Footprints**, **System Health** (admin, separate menu items) | **Security Report:** passwords tried in failed logins, hacking attempts, failed and blocked logins, forbidden pages, delete attempts, dangerous backup files, suspicious IP addresses, and **visits** (how many times the system was opened, by which user, which pages, per day). **Footprints:** every save, edit, payment, delete, login and logout, with user, time, IP and result. Both can be printed and exported as CSV |
 | **My Account** | Every user can change their own password |
-| **Settings** | Business name, phone, address, currency, time zone, receipt footer, **theme** (Blue, Green or Dark), admin username and password, service types, **Price List**, and **Service Speed and Customer Levels** |
+| **Settings** | Business name, phone, address, currency, time zone, receipt footer, **theme** (Blue, Green or Dark), admin username and password, service types, **Price List**, and **Packages (hours), Customer Levels and the WhatsApp/SMS message** |
 
-### Price list, service speed and customer levels
+### Price list, packages and customer levels
 
-- **Price List** (Settings → Price List): enter the price of each item for each service once, for example Shirt / Wash = 1.50. In New Order, typing the item and choosing the service fills in the price automatically. You can still change it for one order. If you type a price yourself, the system does not overwrite it.
-- **Service speed:** each order is **Normal**, **Express** or **VIP**. Each speed has a number of hours (the *Ready By* time is calculated from it) and an extra charge in %. Defaults: Normal 48 h, Express 24 h, VIP 6 h, **0% extra**. Set your own extra charge in Settings.
-- **Customer levels:** each customer is **Normal**, **Silver** or **Gold**. Each level has an automatic discount in %. The **default discount is 0%**, so set it yourself in Settings.
-- **How the order total is calculated:**
-  `Subtotal (items) + Express/VIP charge − level discount = Total`.
-  Example: subtotal $14, Express +50% → $21, Gold −10% → **$18.90**.
-- The % values are saved inside each order. If you change Settings later, **old orders keep their price**.
+- **Packages:** every order is **Normal** (default 48 hours = 2 days), **Silver** (12 hours) or **Gold** (4 hours). You can change the hours in Settings. The *Ready By* time is calculated from them.
+- **Price List** (Settings → Price List) has **one tab per package**. Example: Suit / Dry Clean = Normal $8, Silver $12, Gold $20. In New Order, the price of the chosen package fills in automatically, and changing the package changes the prices. An empty Silver/Gold price uses the Normal price. You can still type a different price for one order; the system then keeps your price.
+- **Customer levels:** **Standard**, **Premium** and **VIP**, each with an automatic discount % (default **0%**; set your own in Settings).
+- **Order total** = items (at the package price) − level discount. Example: 4 shirts × $2.50 + suit $12 = $22, VIP −10% = **$19.80**.
+- The discount % is saved inside each order, so changing Settings later **never changes old orders**.
+- Older versions called the packages Express/VIP and the customer levels Silver/Gold. When you update, the names change automatically (Express → Silver, VIP → Gold; Silver customer → Premium, Gold customer → VIP). Your values are kept.
 
 ### Common tasks
 
@@ -160,6 +162,13 @@ Database name: `nadiif_laundry`. The full structure is in `database/nadiif_laund
 | `employees` | Staff | — |
 | `salary_payments` | Salary payments | `employee_id` → employees (RESTRICT) |
 | `deliveries` | Delivery cost and income | `order_id` → orders, `customer_id` → customers (SET NULL) |
+| `order_history` | Order trace: every step with who and when | `order_id` → orders (CASCADE) |
+| `assets` | Company assets (shelves, computers, machines…) | — |
+| `vendors` | Shops where stock is bought | — |
+| `stock_items` | Detergent, soap, starch… with low-stock level | — |
+| `stock_batches` | Each stock purchase: quantity, quantity left, cost, expiry date (cost copied to `expenses`) | `item_id` → stock_items, `vendor_id` → vendors |
+| `stock_moves` | Stock used / thrown away | `batch_id` → stock_batches |
+| `users`, `activity_log`, `security_log`, `page_visits` | Users with permissions, footprints, security events, visits | — |
 | `daily_running_costs` | Everyday costs | — |
 | `monthly_running_costs` | Monthly costs (month, year, payment date) | — |
 
@@ -199,6 +208,8 @@ nadiif-laundry/
 ├── customers/             index (list/search), form (add/edit), view (history), delete
 ├── orders/                index (list/search), form (new/edit with items), view, status, delete
 ├── tracking/              index (order tracking: shelf + washing/drying/ironing steps)
+├── stock/                 index (alarms), item_form, purchase, purchases, use, usage, vendors
+├── assets/                index, form, delete (company assets)
 ├── payments/              index, add, delete
 ├── income/                index, form, delete
 ├── expenses/              index, form, delete
@@ -210,7 +221,7 @@ nadiif-laundry/
 ├── backup/                index, create, download, delete, restore, email (Gmail settings), auto (daily trigger),
 │                          cron.php + daily-email-backup.bat (Task Scheduler); files/ = backups (web access blocked)
 ├── users/                 index, form (add/edit + permissions), delete (admin only)
-├── security/              index (Security Report + visits), activity (Footprints) (admin only)
+├── security/              index (Security Report, tried passwords, visits), activity (Footprints), health (System Health) (admin only)
 ├── account.php            My Account (change own password)
 ├── settings/              index (business, theme, speeds, levels, admin account), services, prices (price list)
 ├── receipt/print.php      printable receipt (80mm / A4 / mobile)
@@ -231,6 +242,11 @@ Each page follows the same simple pattern:
 - Only the administrator can open Users, Security & Footprints, Settings and Backup & Restore.
 - The system never lets you lock yourself out: you can't switch off or remove your own account, or the last active administrator.
 - Permissions are checked again on every page, so changes take effect immediately.
+
+**Passwords tried (Security Report):** failed and blocked logins show the password that was tried.
+- By default it is **masked**, e.g. `ad••••56 (8)`: you see the length and the first/last letters.
+- The admin can switch to **full**. Be aware: when your own staff mistype, their real password (often the same one they use for Gmail or EVC Plus) is then stored in plain text.
+- Successful logins never store a password.
 
 **What is recorded**
 - **Footprints:** every form that is sent, with who, what, when, IP and result (success, failed or error). Passwords are never written.
@@ -262,7 +278,25 @@ Each page follows the same simple pattern:
 
 ---
 
-## 7. Limitations
+## 7. Crash protection
+
+- **Transactions:** every important save (orders, payments, salaries, stock, restore) either completes fully or saves nothing.
+- **Automatic daily local backup:** the first page opened each day starts it in the background. The newest 14 are kept. The Gmail backup is separate and optional.
+- **No broken pages:** PHP errors, warnings and fatal errors show a friendly message, and the details go to the PHP error log.
+- **System Health** (admin) checks:
+  - free disk space (a full disk is the most common reason MySQL crashes);
+  - damaged database tables (*Check database tables*, useful after a power cut);
+  - the age of the last backup and the email backup status;
+  - PHP limits and recent errors.
+- **Advice:** use a UPS for the computer, and stop MySQL in the XAMPP Control Panel before switching the PC off. Power cuts while MySQL is writing are the main cause of damaged tables. If a table is damaged, restore the newest backup.
+
+## 8. Message to the customer (WhatsApp / SMS)
+
+When an order is **Ready** (or Out for Delivery), the **WhatsApp** and **SMS** buttons open WhatsApp, or the phone's SMS app, with the message already written. The message text is set in Settings and can include {customer} {order} {balance} {total} {shelf} {business} {phone}. Phone numbers are changed to international format automatically: Somalia 252, so 0615… becomes +252615…. The time is saved on the order ("Customer told").
+
+**Honest limit:** sending fully automatically, with nobody pressing Send, needs a paid SMS gateway account (for example from your mobile operator). If you get one, its details can be added later. WhatsApp itself does not allow free automatic sending from a normal number.
+
+## 9. Limitations
 
 - There is **one admin role**. Staff accounts with limited permissions are not included.
 - "Excel export" is **CSV**, which Excel opens directly. "PDF export" uses the browser's **Print → Save as PDF**. No PDF or Excel library is bundled.
@@ -272,7 +306,7 @@ Each page follows the same simple pattern:
 
 ---
 
-## 8. Testing instructions
+## 10. Testing instructions
 
 Test these after installing:
 
@@ -291,13 +325,18 @@ Test these after installing:
 13. **Backup:** create and download a backup. Change some data. Upload the backup → warning → confirm → data is back. A `pre_restore` backup appears in the history. Uploading a `.txt` file or an unrelated `.sql` file is refused.
 14. **New features:** set Express +50% and Gold 10%. Add a Gold customer and enter prices in the Price List. In New Order, the prices fill in and the total = (subtotal +50%) −10%. Add a shelf number. In Order Tracking, pick the customer and check the shelf and current step, and that **Move to next step** works. Switch between the 3 themes.
 15. **Email backup:** create an App Password, save the settings, click **Send test now** and check the inbox. Enter a wrong password → you get a clear error message and a red warning on the dashboard.
-16. **Users and security:** add a Staff user with only Customers + Orders. Log in as that user and check:
+16. **Packages, tracking and stock:**
+    - Set Silver/Gold prices in the Price List, create a Gold order and check the price and the 4-hour ready time.
+    - Move the order through Washing → Drying → Ironing → Ready and press WhatsApp. Then press *Picked up* with a name, and check the Order Trace.
+    - Buy 10 kg detergent with an expiry date and use 12 kg → refused. Use 8 → low-stock alarm.
+    - Add a shelf in Company Assets and check it is offered as the order's shelf.
+17. **Users and security:** add a Staff user with only Customers + Orders. Log in as that user and check:
     - no money totals and no Settings, Users or Backup pages;
     - no Delete buttons;
     - payments can't be taken.
 
     As admin, check that the Security Report and Footprints show what the staff user did. Type `1' OR '1'='1` into a search box → it appears as a hacking attempt. Enter 5 wrong passwords → login is blocked for 15 minutes.
-17. **Updating an existing installation:** copy the new files over the old folder and keep `config/database.php` and `config/installed.lock`. On the next page load, the new columns and tables are added automatically. No data is deleted. Make a backup first anyway.
-18. **Responsive:** use the browser's device mode at phone (375px), tablet (768px) and desktop widths. The menu becomes a hamburger. Tables scroll inside their box, and the page itself does not scroll sideways.
+18. **Updating an existing installation:** copy the new files over the old folder and keep `config/database.php` and `config/installed.lock`. On the next page load, the new columns and tables are added automatically. No data is deleted. Make a backup first anyway.
+19. **Responsive:** use the browser's device mode at phone (375px), tablet (768px) and desktop widths. The menu becomes a hamburger. Tables scroll inside their box, and the page itself does not scroll sideways.
 
-The developer ran these checks automatically on PHP 8.3 and MariaDB 10.11 (the database XAMPP uses): 256 server-side checks (including users, permissions, brute-force blocking, attack logging, upgrading a database from the first version, restoring a backup, and sending the email backup to a test mail server that, like Gmail, requires STARTTLS encryption and a password login) and 31 browser checks (automatic prices, totals, all 3 themes on phone size). All passed.
+The developer ran these checks automatically on PHP 8.3 and MariaDB 10.11 (the database XAMPP uses): 281 server-side checks (including packages and prices, order trace, handover, WhatsApp/SMS links, stock with expiry and FEFO usage, assets, tried passwords, daily local backup, upgrading from every older version, users, permissions, brute-force blocking, attack logging, upgrading a database from the first version, restoring a backup, and sending the email backup to a test mail server that, like Gmail, requires STARTTLS encryption and a password login) and 31 browser checks (automatic prices, totals, all 3 themes on phone size). All passed.

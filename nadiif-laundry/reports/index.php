@@ -16,6 +16,8 @@ $reportLinks = [
     ['report.php?type=customers',      'Customer Report',           'bi-people'],
     ['report.php?type=orders',         'Laundry Order Report',      'bi-basket'],
     ['report.php?type=outstanding',    'Outstanding Balance Report','bi-hourglass-split'],
+    ['report.php?type=stock',          'Stock Purchase Report',     'bi-box-seam'],
+    ['report.php?type=assets',         'Company Assets Report',     'bi-hdd-stack'],
 ];
 $summaryLinks = [
     ['daily.php',   'Daily Report',   'Orders, income, expenses and profit for one day', 'bi-calendar-day'],

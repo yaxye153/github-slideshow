@@ -64,6 +64,8 @@ require __DIR__ . '/../includes/header.php';
             <tr><td class="ps-4">Delivery Costs</td><td class="money"><?= money($pl['by_source']['delivery']) ?></td></tr>
             <tr><td class="ps-4">Daily Running Costs</td><td class="money"><?= money($pl['by_source']['daily_running']) ?></td></tr>
             <tr><td class="ps-4">Monthly Running Costs</td><td class="money"><?= money($pl['by_source']['monthly_running']) ?></td></tr>
+            <tr><td class="ps-4">Stock Purchases (detergent, soap...)</td><td class="money"><?= money($pl['by_source']['stock']) ?></td></tr>
+            <?php if ($pl['by_source']['asset'] > 0): ?><tr><td class="ps-4">Asset Purchases</td><td class="money"><?= money($pl['by_source']['asset']) ?></td></tr><?php endif; ?>
             <?php foreach ($pl['manual_by_category'] as $cat => $amount): ?>
                 <tr><td class="ps-4"><?= e($cat) ?> <small class="text-muted">(other expenses)</small></td><td class="money"><?= money($amount) ?></td></tr>
             <?php endforeach; ?>

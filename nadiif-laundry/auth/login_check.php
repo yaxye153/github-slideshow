@@ -27,7 +27,7 @@ if ($username === '' || $password === '') {
 // Blocked because of too many wrong passwords?
 $wait = login_blocked_minutes($pdo, $username);
 if ($wait > 0) {
-    log_security($pdo, 'login_blocked', 'danger', 'Login refused: too many wrong passwords', $username);
+    log_security($pdo, 'login_blocked', 'danger', 'Login refused: too many wrong passwords', $username, $password);
     flash('danger', 'Too many wrong passwords. For security, login is blocked for ' . $wait . ' minute(s).');
     redirect('login.php');
 }
@@ -36,7 +36,7 @@ if ($wait > 0) {
 $user = db_row($pdo, 'SELECT id, username, password_hash, is_active FROM users WHERE username = ?', [$username]);
 
 if (!$user || !password_verify($password, $user['password_hash'])) {
-    log_security($pdo, 'login_failed', 'warning', $user ? 'Wrong password' : 'Unknown username', $username);
+    log_security($pdo, 'login_failed', 'warning', $user ? 'Wrong password' : 'Unknown username', $username, $password);
     sleep(1); // slow down password guessing
     flash('danger', 'Invalid username or password.');
     redirect('login.php');

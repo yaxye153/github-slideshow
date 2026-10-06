@@ -10,7 +10,7 @@ $q = trim((string)($_GET['q'] ?? ''));
 // Default dates: this month (some reports look further back)
 [$monthFrom, $monthTo] = period_range('month');
 $defaultFrom = $monthFrom;
-if (in_array($type, ['yearly-sales', 'outstanding', 'customers'], true)) {
+if (in_array($type, ['yearly-sales', 'outstanding', 'customers', 'assets'], true)) {
     $defaultFrom = '2000-01-01';
 }
 $from = get_date('from', $defaultFrom);
@@ -90,6 +90,23 @@ $reports = [
                   FROM monthly_running_costs WHERE payment_date BETWEEN ? AND ? ORDER BY payment_date, id",
         'money' => ['Amount'], 'dates' => ['Paid On'], 'sum' => ['Amount'],
     ],
+    'stock' => [
+        'title' => 'Stock Purchase Report',
+        'note' => 'Detergent, soap, starch... bought (also counted in Expenses).',
+        'sql' => "SELECT b.purchase_date AS `Date`, i.name AS `Item`, v.name AS `Vendor`, CONCAT(TRIM(TRAILING '.' FROM TRIM(TRAILING '0' FROM b.qty_in)), ' ', i.unit) AS `Quantity`,
+                         b.expiry_date AS `Expiry`, b.unit_cost AS `Unit Cost`, b.total_cost AS `Total`
+                  FROM stock_batches b JOIN stock_items i ON i.id = b.item_id LEFT JOIN vendors v ON v.id = b.vendor_id
+                  WHERE b.purchase_date BETWEEN ? AND ? ORDER BY b.purchase_date, b.id",
+        'money' => ['Unit Cost', 'Total'], 'dates' => ['Date', 'Expiry'], 'sum' => ['Total'],
+    ],
+    'assets' => [
+        'title' => 'Company Assets Report',
+        'note' => 'Assets bought between the dates (all assets: choose an early From date).',
+        'sql' => "SELECT asset_code AS `Code`, name AS `Name`, category AS `Type`, location AS `Location`, purchase_date AS `Bought`,
+                         condition_status AS `Condition`, IF(is_active, 'In use', 'Retired') AS `Status`, purchase_cost AS `Cost`
+                  FROM assets WHERE COALESCE(purchase_date, '2000-01-01') BETWEEN ? AND ? ORDER BY category, asset_code, name",
+        'money' => ['Cost'], 'dates' => ['Bought'], 'sum' => ['Cost'],
+    ],
     'customers' => [
         'title' => 'Customer Report',
         'note' => 'All customers. Order totals only include orders inside the selected dates (cancelled orders not included).',
@@ -103,7 +120,7 @@ $reports = [
     'orders' => [
         'title' => 'Laundry Order Report',
         'sql' => "SELECT o.order_number AS `Order`, o.order_date AS `Date`, c.full_name AS `Customer`, c.phone AS `Phone`, o.status AS `Status`,
-                         o.service_speed AS `Speed`, o.shelf_number AS `Shelf`, o.payment_status AS `Payment`, o.total_amount AS `Total`, o.amount_paid AS `Paid`, o.balance AS `Balance`
+                         o.service_speed AS `Package`, o.shelf_number AS `Shelf`, o.created_by_name AS `Created By`, o.payment_status AS `Payment`, o.total_amount AS `Total`, o.amount_paid AS `Paid`, o.balance AS `Balance`
                   FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.order_date BETWEEN ? AND ? ORDER BY o.order_date, o.id",
         'money' => ['Total', 'Paid', 'Balance'], 'dates' => ['Date'], 'sum' => ['Total', 'Paid', 'Balance'],
     ],

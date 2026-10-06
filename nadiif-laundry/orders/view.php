@@ -11,6 +11,8 @@ if (!$order) {
 $items = db_all($pdo, 'SELECT * FROM order_items WHERE order_id = ? ORDER BY id', [$id]);
 $payments = db_all($pdo, 'SELECT * FROM payments WHERE order_id = ? ORDER BY payment_date, id', [$id]);
 $deliveries = db_all($pdo, 'SELECT * FROM deliveries WHERE order_id = ? ORDER BY delivery_date', [$id]);
+// Order trace: every step with who and when
+$history = db_all($pdo, 'SELECT * FROM order_history WHERE order_id = ? ORDER BY changed_at, id', [$id]);
 
 $pageTitle = 'Order ' . $order['order_number'];
 require __DIR__ . '/../includes/header.php';
@@ -20,6 +22,13 @@ require __DIR__ . '/../includes/header.php';
     <div class="d-flex gap-2 flex-wrap">
         <?php if ($order['balance'] > 0 && $order['status'] !== 'Cancelled' && can('payments')): ?>
             <a class="btn btn-success" href="../payments/add.php?order_id=<?= $id ?>"><i class="bi bi-cash"></i> Add Payment</a>
+        <?php endif; ?>
+        <?php if (in_array($order['status'], ['Ready', 'Out for Delivery'], true)): ?>
+            <form method="post" action="notify.php" target="_blank" class="d-flex gap-1">
+                <?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>">
+                <button class="btn <?= $order['notified_at'] ? 'btn-outline-success' : 'btn-success' ?>" name="via" value="whatsapp" type="submit"><i class="bi bi-whatsapp"></i> WhatsApp</button>
+                <button class="btn btn-outline-primary" name="via" value="sms" type="submit"><i class="bi bi-chat-dots"></i> SMS</button>
+            </form>
         <?php endif; ?>
         <a class="btn btn-outline-dark" href="../receipt/print.php?id=<?= $id ?>" target="_blank"><i class="bi bi-printer"></i> Receipt</a>
         <a class="btn btn-outline-secondary" href="form.php?id=<?= $id ?>"><i class="bi bi-pencil"></i> Edit</a>
@@ -36,6 +45,11 @@ require __DIR__ . '/../includes/header.php';
                 <tr><th>Customer</th><td><a href="../customers/view.php?id=<?= $order['customer_id'] ?>"><?= e($order['full_name']) ?></a> (<?= e($order['customer_code']) ?>) <?= tier_badge($order['tier']) ?></td></tr>
                 <tr><th>Phone</th><td><?= e($order['phone']) ?></td></tr>
                 <tr><th>Order Date</th><td><?= show_date($order['order_date']) ?></td></tr>
+                <tr><th>Created By</th><td><?= e($order['created_by_name'] ?: '-') ?> <span class="text-muted small"><?= show_datetime($order['created_at']) ?></span></td></tr>
+                <?php if ($order['status'] === 'Delivered'): ?>
+                    <tr><th><?= $order['pickup_type'] === 'Delivery' ? 'Delivered' : 'Picked Up' ?></th><td><?= show_datetime($order['handed_over_at']) ?><?= $order['received_by'] ? ' &middot; received by <b>' . e($order['received_by']) . '</b>' : '' ?></td></tr>
+                <?php endif; ?>
+                <?php if ($order['notified_at']): ?><tr><th>Customer Told</th><td><?= show_datetime($order['notified_at']) ?></td></tr><?php endif; ?>
                 <tr><th>Service Speed</th><td><?= speed_badge($order['service_speed']) ?></td></tr>
                 <tr><th>Ready By</th><td><?= $order['ready_at'] ? show_datetime($order['ready_at']) : show_date($order['expected_date']) ?> <?= ready_label($order) ?></td></tr>
                 <tr><th>Shelf Number</th><td><span class="shelf"><?= e($order['shelf_number']) ?: '-' ?></span></td></tr>
@@ -55,6 +69,7 @@ require __DIR__ . '/../includes/header.php';
             <form method="post" action="status.php" class="d-flex gap-2">
                 <?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>">
                 <select class="form-select" name="status"><?= options(order_statuses(), $order['status']) ?></select>
+                <input class="form-control" name="received_by" placeholder="Received by" style="max-width: 130px" maxlength="100" title="Name of the person who received the order (when Delivered)">
                 <input class="form-control" name="shelf_number" value="<?= e($order['shelf_number']) ?>" placeholder="Shelf" style="max-width: 110px" maxlength="20" title="Shelf number">
                 <button class="btn btn-primary" type="submit">Update</button>
             </form>
@@ -113,6 +128,15 @@ require __DIR__ . '/../includes/header.php';
         </table>
     </div>
 </div>
+
+<div class="section-title">Order Trace</div>
+<div class="card shadow-sm mb-3"><div class="table-responsive"><table class="table table-sm mb-0">
+    <thead><tr><th>Time</th><th>Step</th><th>By</th><th>Note</th></tr></thead>
+    <?php foreach ($history as $h): ?>
+        <tr><td class="small text-nowrap"><?= show_datetime($h['changed_at']) ?></td><td><?= badge($h['status']) ?></td><td><?= e($h['username']) ?: '-' ?></td><td class="small"><?= e($h['note']) ?></td></tr>
+    <?php endforeach; ?>
+    <?php if (!$history): ?><tr><td colspan="4" class="text-muted text-center py-3">No steps recorded yet (orders made before this version have no trace).</td></tr><?php endif; ?>
+</table></div></div>
 
 <?php if ($deliveries): ?>
     <div class="section-title">Deliveries</div>

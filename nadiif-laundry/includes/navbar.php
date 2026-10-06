@@ -14,15 +14,21 @@ $navMenu = [
     ['delivery/index.php',        'Delivery',         'bi-truck',            'delivery'],
     ['daily-running/index.php',   'Daily Running',    'bi-calendar-day',     'running'],
     ['monthly-running/index.php', 'Monthly Running',  'bi-calendar-month',   'running'],
+    ['stock/index.php',           'Stock',            'bi-box-seam',         'stock'],
+    ['assets/index.php',          'Company Assets',   'bi-hdd-stack',        'assets'],
     ['reports/profit_loss.php',   'Profit & Loss',    'bi-bar-chart-line',   'reports'],
     ['reports/index.php',         'Reports',          'bi-file-earmark-text','reports'],
     ['users/index.php',           'Users',            'bi-person-gear',      'admin'],
-    ['security/index.php',        'Security & Footprints', 'bi-shield-check', 'admin'],
+    ['security/index.php',        'Security Report',  'bi-shield-exclamation', 'admin'],
+    ['security/activity.php',     'Footprints',       'bi-list-check',       'admin'],
+    ['security/health.php',       'System Health',    'bi-heart-pulse',      'admin'],
     ['backup/index.php',          'Backup & Restore', 'bi-database-down',    'admin'],
     ['settings/index.php',        'Settings',         'bi-gear',             'admin'],
     ['account.php',               'My Account',       'bi-person-circle',    null],
 ];
 $navScript = $_SERVER['SCRIPT_NAME'] ?? '';
+// Red number next to "Stock" when there are stock alarms
+$navStockAlerts = can('stock') ? stock_alerts($pdo)['count'] : 0;
 ?>
 <!-- Top bar (phones and tablets) -->
 <nav class="navbar navbar-dark bg-brand d-lg-none sticky-top no-print">
@@ -49,12 +55,13 @@ $navScript = $_SERVER['SCRIPT_NAME'] ?? '';
                 if ($navNeeds !== null && !can($navNeeds)) { continue; } // hide sections the user may not use
                 // Highlight the current section of the menu
                 $navFolder = strpos($navLink, '/') !== false ? dirname($navLink) . '/' : $navLink;
-                $navActive = $navLink === 'reports/profit_loss.php'
-                    ? strpos($navScript, '/reports/profit_loss.php') !== false
+                $navExact = in_array($navLink, ['reports/profit_loss.php', 'security/index.php', 'security/activity.php', 'security/health.php'], true);
+                $navActive = $navExact
+                    ? $navScript === BASE_URL . '/' . $navLink
                     : (strpos($navScript, BASE_URL . '/' . $navFolder) === 0 && strpos($navScript, '/reports/profit_loss.php') === false);
             ?>
                 <li class="nav-item">
-                    <a class="nav-link<?= $navActive ? ' active' : '' ?>" href="<?= url($navLink) ?>"><i class="bi <?= $navIcon ?>"></i> <?= e($navLabel) ?></a>
+                    <a class="nav-link<?= $navActive ? ' active' : '' ?>" href="<?= url($navLink) ?>"><i class="bi <?= $navIcon ?>"></i> <?= e($navLabel) ?><?= $navLink === 'stock/index.php' && $navStockAlerts ? ' <span class="badge bg-danger rounded-pill">' . $navStockAlerts . '</span>' : '' ?></a>
                 </li>
             <?php endforeach; ?>
             <li class="nav-item mt-2 border-top border-secondary pt-2">

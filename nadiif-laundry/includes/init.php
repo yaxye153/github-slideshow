@@ -41,6 +41,26 @@ set_exception_handler(function (Throwable $e) {
     exit;
 });
 
+// Warnings and notices: write them to the error log, never show them to users
+set_error_handler(function (int $level, string $message, string $file = '', int $line = 0) {
+    error_log('NADIIF LAUNDRY warning: ' . $message . ' in ' . $file . ':' . $line);
+    return true;   // handled: keep going
+});
+
+// Fatal errors (for example out of memory): show a friendly page instead of a white screen
+register_shutdown_function(function () {
+    $error = error_get_last();
+    if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+        $GLOBALS['app_failed'] = true;
+        error_log('NADIIF LAUNDRY fatal: ' . $error['message'] . ' in ' . $error['file'] . ':' . $error['line']);
+        if (!headers_sent()) {
+            http_response_code(500);
+        }
+        echo '<div style="font-family:Arial;max-width:560px;margin:40px auto;padding:16px;border:1px solid #f5c2c7;background:#f8d7da;color:#842029;border-radius:6px">'
+           . '<b>Sorry, something went wrong.</b><br>The action was stopped and nothing was saved. Please go back and try again.</div>';
+    }
+});
+
 // Start the session (used for login and messages)
 start_app_session();
 

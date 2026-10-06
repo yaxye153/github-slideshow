@@ -98,14 +98,19 @@ function default_settings(): array
         'receipt_footer'  => 'Thank you for choosing NADIIF LAUNDRY!',
         'timezone'        => 'Africa/Mogadishu',
         'theme'           => 'blue',
-        // Service speed: how many hours until ready, and extra charge in %
-        'speed_normal_hours'    => '48', 'speed_normal_percent'  => '0',
-        'speed_express_hours'   => '24', 'speed_express_percent' => '0',
-        'speed_vip_hours'       => '6',  'speed_vip_percent'     => '0',
+        // Service packages: how many hours until the order is ready
+        'speed_normal_hours'    => '48',
+        'speed_silver_hours'    => '12',
+        'speed_gold_hours'      => '4',
         // Customer levels: discount in %
-        'tier_normal_discount'  => '0',
-        'tier_silver_discount'  => '0',
-        'tier_gold_discount'    => '0',
+        'tier_standard_discount'=> '0',
+        'tier_premium_discount' => '0',
+        'tier_vip_discount'     => '0',
+        // Message to the customer when the order is ready (WhatsApp / SMS)
+        'country_code'          => '252',
+        'ready_message'         => 'Hello {customer}, your laundry order {order} is READY at {business}. Balance: {balance}. Shelf: {shelf}. Thank you!',
+        // Security report: keep tried passwords masked (safer) or full
+        'log_tried_passwords'   => 'masked',
     ];
 }
 
@@ -291,14 +296,14 @@ function in_list(string $value, array $allowed, string $default): string
 
 function order_statuses(): array
 {
-    return ['Received', 'Washing', 'Drying', 'Ironing', 'Ready', 'Delivered', 'Cancelled'];
+    return ['Received', 'Washing', 'Drying', 'Ironing', 'Ready', 'Out for Delivery', 'Delivered', 'Cancelled'];
 }
 
 function status_color(string $status): string
 {
     $colors = [
         'Received' => 'secondary', 'Washing' => 'info', 'Drying' => 'info', 'Ironing' => 'primary',
-        'Ready' => 'warning', 'Delivered' => 'success', 'Cancelled' => 'danger',
+        'Ready' => 'warning', 'Out for Delivery' => 'primary', 'Delivered' => 'success', 'Cancelled' => 'danger',
         'Paid' => 'success', 'Partial' => 'warning', 'Unpaid' => 'danger',
         'Active' => 'success', 'Inactive' => 'secondary',
     ];
@@ -402,7 +407,7 @@ function payment_status(float $total, float $paid): string
 
 // Recalculate an order's money from the real order_items and payments rows.
 //   Subtotal     = sum of item totals (Quantity x Price)
-//   Speed charge = Subtotal x speed % (Express / VIP)
+//   Speed charge = Subtotal x speed % (only old orders; packages now use their own prices)
 //   Discount     = (Subtotal + Speed charge) x customer level %
 //   Total        = Subtotal + Speed charge - Discount
 //   Balance      = Total - Amount Paid
@@ -436,44 +441,42 @@ function order_money(float $subtotal, float $speedPercent, float $discountPercen
 
 
 // ---------------------------------------------------------------------
-// SERVICE SPEED (Normal / Express / VIP) AND CUSTOMER LEVELS
+// SERVICE PACKAGES (Normal / Silver / Gold) AND CUSTOMER LEVELS
 // ---------------------------------------------------------------------
 
-// ['Normal' => ['hours' => 48, 'percent' => 0], 'Express' => ..., 'VIP' => ...]
+// ['Normal' => ['hours' => 48], 'Silver' => ['hours' => 12], 'Gold' => ['hours' => 4]]
+// Each package has its own prices in the Price List.
 function service_speeds(): array
 {
     $speeds = [];
-    foreach (['Normal' => 'normal', 'Express' => 'express', 'VIP' => 'vip'] as $name => $key) {
-        $speeds[$name] = [
-            'hours' => max(1, (int)setting('speed_' . $key . '_hours', '48')),
-            'percent' => (float)setting('speed_' . $key . '_percent', '0'),
-        ];
+    foreach (['Normal' => ['normal', '48'], 'Silver' => ['silver', '12'], 'Gold' => ['gold', '4']] as $name => [$key, $default]) {
+        $speeds[$name] = ['hours' => max(1, (int)setting('speed_' . $key . '_hours', $default)), 'percent' => 0.0];
     }
     return $speeds;
 }
 
-// ['Normal' => 0, 'Silver' => 5, 'Gold' => 10]  (discount %)
+// Customer levels with their automatic discount %
 function customer_tiers(): array
 {
     return [
-        'Normal' => (float)setting('tier_normal_discount', '0'),
-        'Silver' => (float)setting('tier_silver_discount', '0'),
-        'Gold'   => (float)setting('tier_gold_discount', '0'),
+        'Standard' => (float)setting('tier_standard_discount', '0'),
+        'Premium'  => (float)setting('tier_premium_discount', '0'),
+        'VIP'      => (float)setting('tier_vip_discount', '0'),
     ];
 }
 
 function tier_badge(string $tier): string
 {
-    $colors = ['Gold' => 'background:#d4a017;color:#000', 'Silver' => 'background:#adb5bd;color:#000', 'Normal' => 'background:#e9ecef;color:#495057'];
-    $icon = $tier === 'Normal' ? '' : '<i class="bi bi-star-fill"></i> ';
-    return '<span class="badge" style="' . ($colors[$tier] ?? $colors['Normal']) . '">' . $icon . e($tier) . '</span>';
+    $colors = ['VIP' => 'background:#6f42c1;color:#fff', 'Premium' => 'background:#0dcaf0;color:#000', 'Standard' => 'background:#e9ecef;color:#495057'];
+    $icon = $tier === 'Standard' ? '' : '<i class="bi bi-star-fill"></i> ';
+    return '<span class="badge" style="' . ($colors[$tier] ?? $colors['Standard']) . '">' . $icon . e($tier) . '</span>';
 }
 
 function speed_badge(string $speed): string
 {
-    $colors = ['VIP' => 'danger', 'Express' => 'warning text-dark', 'Normal' => 'light text-dark border'];
+    $styles = ['Gold' => 'background:#d4a017;color:#000', 'Silver' => 'background:#adb5bd;color:#000', 'Normal' => 'background:#f8f9fa;color:#495057;border:1px solid #dee2e6'];
     $icon = $speed === 'Normal' ? '' : '<i class="bi bi-lightning-charge-fill"></i> ';
-    return '<span class="badge bg-' . ($colors[$speed] ?? $colors['Normal']) . '">' . $icon . e($speed) . '</span>';
+    return '<span class="badge" style="' . ($styles[$speed] ?? $styles['Normal']) . '">' . $icon . e($speed) . '</span>';
 }
 
 // Show when an order will be ready: "in 5 h", "OVERDUE 2 h", ...
@@ -507,12 +510,17 @@ function show_datetime(?string $value): string
 // PRICE LIST
 // ---------------------------------------------------------------------
 
-// All saved prices as ['shirt|wash' => 1.50, ...] (lower case keys)
+// All saved prices: ['shirt|wash' => ['Normal' => 1.5, 'Silver' => 2.5, 'Gold' => 4], ...]
+// (lower case keys; an empty Silver/Gold price uses the Normal price)
 function price_list_map(PDO $pdo): array
 {
     $map = [];
-    foreach (db_all($pdo, 'SELECT item_name, service_type, price FROM price_list') as $r) {
-        $map[mb_strtolower($r['item_name'] . '|' . $r['service_type'])] = (float)$r['price'];
+    foreach (db_all($pdo, 'SELECT item_name, service_type, price, price_silver, price_gold FROM price_list') as $r) {
+        $map[mb_strtolower($r['item_name'] . '|' . $r['service_type'])] = [
+            'Normal' => (float)$r['price'],
+            'Silver' => $r['price_silver'] !== null ? (float)$r['price_silver'] : (float)$r['price'],
+            'Gold' => $r['price_gold'] !== null ? (float)$r['price_gold'] : (float)$r['price'],
+        ];
     }
     return $map;
 }
@@ -541,7 +549,7 @@ function theme_attributes(): string
 // When a new version adds tables or columns, they are added here
 // automatically. Existing data is never deleted.
 
-const APP_DB_VERSION = 3;
+const APP_DB_VERSION = 4;
 
 function column_exists(PDO $pdo, string $table, string $column): bool
 {
@@ -592,11 +600,47 @@ function run_upgrades(PDO $pdo): void
             $pdo->exec("ALTER TABLE `users` ADD COLUMN `$column` $definition");
         }
     }
+    // Version 3+4: create any missing tables from the structure file
     $schema = (string)file_get_contents(APP_ROOT . '/database/nadiif_laundry.sql');
     foreach (sql_split_statements($schema) as $statement) {
-        if (preg_match('/^CREATE TABLE IF NOT EXISTS `(activity_log|security_log|page_visits)`/', $statement)) {
+        if (preg_match('/^CREATE TABLE IF NOT EXISTS `(activity_log|security_log|page_visits|order_history|assets|vendors|stock_items|stock_batches|stock_moves)`/', $statement)) {
             $pdo->exec($statement);
         }
+    }
+
+    // Version 4: who created the order, handover, messages, package prices, tried passwords
+    $v4 = [
+        ['orders', 'created_by', 'INT UNSIGNED NULL AFTER `notes`'],
+        ['orders', 'created_by_name', 'VARCHAR(50) NULL AFTER `created_by`'],
+        ['orders', 'received_by', 'VARCHAR(100) NULL AFTER `created_by_name`'],
+        ['orders', 'handed_over_at', 'DATETIME NULL AFTER `received_by`'],
+        ['orders', 'notified_at', 'DATETIME NULL AFTER `handed_over_at`'],
+        ['price_list', 'price_silver', 'DECIMAL(12,2) NULL AFTER `price`'],
+        ['price_list', 'price_gold', 'DECIMAL(12,2) NULL AFTER `price_silver`'],
+        ['security_log', 'tried_password', 'VARCHAR(100) NULL AFTER `details`'],
+    ];
+    foreach ($v4 as [$table, $column, $definition]) {
+        if (!column_exists($pdo, $table, $column)) {
+            $pdo->exec("ALTER TABLE `$table` ADD COLUMN `$column` $definition");
+        }
+    }
+    // Renamed packages and customer levels (old names -> new names)
+    $pdo->exec("UPDATE orders SET service_speed = 'Silver' WHERE service_speed = 'Express'");
+    $pdo->exec("UPDATE orders SET service_speed = 'Gold' WHERE service_speed = 'VIP'");
+    $pdo->exec("UPDATE customers SET tier = CASE tier WHEN 'Silver' THEN 'Premium' WHEN 'Gold' THEN 'VIP' WHEN 'Normal' THEN 'Standard' ELSE tier END");
+    $pdo->exec("ALTER TABLE customers ALTER COLUMN tier SET DEFAULT 'Standard'");
+    $renames = ['tier_normal_discount' => 'tier_standard_discount', 'tier_silver_discount' => 'tier_premium_discount', 'tier_gold_discount' => 'tier_vip_discount'];
+    foreach ($renames as $old => $new) {
+        db_query($pdo, 'INSERT IGNORE INTO settings (setting_key, setting_value) SELECT ?, setting_value FROM settings WHERE setting_key = ?', [$new, $old]);
+    }
+    // Express/VIP hours: keep a value the owner changed, otherwise use the new 12 h / 4 h
+    $oldExpress = db_value($pdo, "SELECT setting_value FROM settings WHERE setting_key = 'speed_express_hours'");
+    $oldVip = db_value($pdo, "SELECT setting_value FROM settings WHERE setting_key = 'speed_vip_hours'");
+    if ($oldExpress !== false && $oldExpress !== '24') {
+        db_query($pdo, "INSERT IGNORE INTO settings (setting_key, setting_value) VALUES ('speed_silver_hours', ?)", [$oldExpress]);
+    }
+    if ($oldVip !== false && $oldVip !== '6') {
+        db_query($pdo, "INSERT IGNORE INTO settings (setting_key, setting_value) VALUES ('speed_gold_hours', ?)", [$oldVip]);
     }
 
     save_setting($pdo, 'db_version', (string)APP_DB_VERSION);
@@ -651,6 +695,7 @@ function source_label(string $source): string
     $labels = [
         'manual' => 'Entered by hand', 'order_payment' => 'Order payment', 'delivery' => 'Delivery',
         'salary' => 'Salary', 'daily_running' => 'Daily running', 'monthly_running' => 'Monthly running',
+        'stock' => 'Stock purchase', 'asset' => 'Asset purchase',
     ];
     return $labels[$source] ?? $source;
 }
@@ -661,6 +706,7 @@ function source_link(string $source): string
     $links = [
         'order_payment' => 'payments/index.php', 'delivery' => 'delivery/index.php', 'salary' => 'salaries/index.php',
         'daily_running' => 'daily-running/index.php', 'monthly_running' => 'monthly-running/index.php',
+        'stock' => 'stock/purchases.php', 'asset' => 'assets/index.php',
     ];
     return url($links[$source] ?? 'dashboard.php');
 }
@@ -981,7 +1027,7 @@ function profit_and_loss(PDO $pdo, string $from, string $to): array
     }
 
     // Expenses from each module
-    $bySource = ['salary' => 0.0, 'delivery' => 0.0, 'daily_running' => 0.0, 'monthly_running' => 0.0, 'manual' => 0.0];
+    $bySource = ['salary' => 0.0, 'delivery' => 0.0, 'daily_running' => 0.0, 'monthly_running' => 0.0, 'stock' => 0.0, 'asset' => 0.0, 'manual' => 0.0];
     foreach (db_all($pdo, 'SELECT source, SUM(amount) AS total FROM expenses WHERE expense_date BETWEEN ? AND ? GROUP BY source', [$from, $to]) as $r) {
         $bySource[$r['source']] = (float)$r['total'];
     }
@@ -1218,6 +1264,8 @@ function permission_list(): array
         'salaries'         => 'Salaries & Employees',
         'delivery'         => 'Delivery',
         'running'          => 'Daily & Monthly Running Costs',
+        'stock'            => 'Stock (detergent, soap...) and Vendors',
+        'assets'           => 'Company Assets (shelves, computers...)',
         'reports'          => 'Reports and Profit & Loss',
         'finance_dashboard'=> 'See money totals on the Dashboard',
     ];
@@ -1226,7 +1274,11 @@ function permission_list(): array
 // Which permission each folder needs ('admin' = administrator only)
 function page_permission(string $page): ?string
 {
+    if ($page === 'backup/auto.php') {
+        return null;   // background daily tasks: started by any logged-in user
+    }
     $map = [
+        'stock/' => 'stock', 'assets/' => 'assets',
         'customers/' => 'customers', 'orders/' => 'orders', 'tracking/' => 'orders', 'receipt/' => 'orders',
         'payments/' => 'payments', 'income/' => 'income', 'expenses/' => 'expenses', 'salaries/' => 'salaries',
         'delivery/' => 'delivery', 'daily-running/' => 'running', 'monthly-running/' => 'running', 'reports/' => 'reports',
@@ -1287,15 +1339,16 @@ function client_ip(): string
 }
 
 // Save a security event. Severity: info, warning, danger
-function log_security(PDO $pdo, string $event, string $severity, string $details = '', ?string $username = null): void
+function log_security(PDO $pdo, string $event, string $severity, string $details = '', ?string $username = null, ?string $triedPassword = null): void
 {
     global $CURRENT_USER;
     try {
-        db_query($pdo, 'INSERT INTO security_log (created_at, event, severity, user_id, username, ip, user_agent, page, details)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        db_query($pdo, 'INSERT INTO security_log (created_at, event, severity, user_id, username, ip, user_agent, page, details, tried_password)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [date('Y-m-d H:i:s'), $event, $severity, $CURRENT_USER['id'] ?? null,
              mb_substr($username ?? ($CURRENT_USER['username'] ?? ''), 0, 50), client_ip(),
-             mb_substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255), current_page(), mb_substr($details, 0, 2000)]);
+             mb_substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255), current_page(), mb_substr($details, 0, 2000),
+             $triedPassword !== null ? tried_password_for_log($triedPassword) : null]);
     } catch (Throwable $e) {
         error_log('Could not write security log: ' . $e->getMessage());
     }
@@ -1406,4 +1459,187 @@ function login_blocked_minutes(PDO $pdo, string $username): int
         return 0;
     }
     return max(1, (int)ceil((strtotime($last) + 15 * 60 - time()) / 60));
+}
+
+
+// ---------------------------------------------------------------------
+// ORDER HISTORY (trace of every step: who and when)
+// ---------------------------------------------------------------------
+
+function log_order_step(PDO $pdo, int $orderId, string $status, string $note = ''): void
+{
+    global $CURRENT_USER;
+    db_query($pdo, 'INSERT INTO order_history (order_id, status, changed_at, user_id, username, note) VALUES (?, ?, ?, ?, ?, ?)',
+        [$orderId, $status, date('Y-m-d H:i:s'), $CURRENT_USER['id'] ?? null, $CURRENT_USER['username'] ?? null, mb_substr($note, 0, 255)]);
+}
+
+// The work steps and the handover steps of an order
+function work_steps(): array
+{
+    return ['Received' => 'bi-inbox', 'Washing' => 'bi-water', 'Drying' => 'bi-wind', 'Ironing' => 'bi-thermometer-high', 'Ready' => 'bi-check2-circle'];
+}
+
+function handover_steps(string $pickupType): array
+{
+    return $pickupType === 'Delivery'
+        ? ['Ready' => 'bi-check2-circle', 'Out for Delivery' => 'bi-truck', 'Delivered' => 'bi-house-check']
+        : ['Ready' => 'bi-check2-circle', 'Delivered' => 'bi-person-check'];
+}
+
+// Next status after the current one (null = finished)
+function next_status(array $order): ?string
+{
+    $flow = ['Received' => 'Washing', 'Washing' => 'Drying', 'Drying' => 'Ironing', 'Ironing' => 'Ready',
+             'Ready' => $order['pickup_type'] === 'Delivery' ? 'Out for Delivery' : 'Delivered', 'Out for Delivery' => 'Delivered'];
+    return $flow[$order['status']] ?? null;
+}
+
+// Button text for the next step
+function next_status_label(array $order, string $next): string
+{
+    if ($next === 'Delivered') {
+        return $order['pickup_type'] === 'Delivery' ? 'Delivered to customer' : 'Picked up by customer';
+    }
+    return 'Move to ' . $next;
+}
+
+
+// ---------------------------------------------------------------------
+// MESSAGE TO THE CUSTOMER (WhatsApp / SMS)
+// ---------------------------------------------------------------------
+
+// 0615123456 -> 252615123456 (international format, digits only)
+function international_phone(string $phone): string
+{
+    $digits = preg_replace('/\D/', '', $phone);
+    $cc = preg_replace('/\D/', '', setting('country_code', '252'));
+    if ($digits === '') {
+        return '';
+    }
+    if (strpos($digits, '00') === 0) {
+        return substr($digits, 2);
+    }
+    if ($cc !== '' && strpos($digits, $cc) === 0 && strlen($digits) > 9) {
+        return $digits;
+    }
+    return $cc . ltrim($digits, '0');
+}
+
+// The "order is ready" text, with {customer}, {order}, {balance}, {shelf}, {business} filled in
+function ready_message_text(array $order): string
+{
+    return strtr(setting('ready_message'), [
+        '{customer}' => $order['full_name'] ?? '',
+        '{order}' => $order['order_number'] ?? '',
+        '{balance}' => money($order['balance'] ?? 0),
+        '{total}' => money($order['total_amount'] ?? 0),
+        '{shelf}' => ($order['shelf_number'] ?? '') !== '' ? $order['shelf_number'] : '-',
+        '{business}' => setting('business_name'),
+        '{phone}' => setting('business_phone'),
+    ]);
+}
+
+
+// ---------------------------------------------------------------------
+// TRIED PASSWORDS (security report)
+// ---------------------------------------------------------------------
+
+// Masked: "ad••••56 (8)"  -  Full: the password as typed
+function tried_password_for_log(string $password): string
+{
+    $password = mb_substr($password, 0, 60);
+    if (setting('log_tried_passwords', 'masked') === 'full') {
+        return $password;
+    }
+    $len = mb_strlen($password);
+    if ($len <= 4) {
+        return str_repeat('•', $len) . ' (' . $len . ')';
+    }
+    return mb_substr($password, 0, 2) . str_repeat('•', max(2, $len - 4)) . mb_substr($password, -2) . ' (' . $len . ')';
+}
+
+
+// ---------------------------------------------------------------------
+// STOCK (detergent, soap, starch...)
+// ---------------------------------------------------------------------
+
+function stock_categories(): array
+{
+    return ['Detergent', 'Soap', 'Starch', 'Softener', 'Bleach', 'Stain Remover', 'Packaging', 'Hangers', 'Other'];
+}
+
+function stock_units(): array
+{
+    return ['kg', 'g', 'L', 'ml', 'pcs', 'box', 'bag', 'bottle'];
+}
+
+// Expense category used when stock is bought
+function stock_expense_category(string $category): string
+{
+    $map = ['Detergent' => 'Detergent', 'Soap' => 'Soap', 'Packaging' => 'Packaging', 'Hangers' => 'Packaging'];
+    return $map[$category] ?? 'Cleaning Materials';
+}
+
+// Stock alerts: low stock, expired, expiring within 30 days
+function stock_alerts(PDO $pdo): array
+{
+    $today = date('Y-m-d');
+    $low = db_all($pdo, 'SELECT i.id, i.name, i.unit, i.min_quantity, COALESCE(SUM(b.qty_left), 0) AS qty
+        FROM stock_items i LEFT JOIN stock_batches b ON b.item_id = i.id
+        WHERE i.is_active = 1 GROUP BY i.id HAVING qty <= i.min_quantity ORDER BY qty');
+    $expired = db_all($pdo, 'SELECT b.id, b.expiry_date, b.qty_left, i.name, i.unit FROM stock_batches b JOIN stock_items i ON i.id = b.item_id
+        WHERE b.qty_left > 0 AND b.expiry_date IS NOT NULL AND b.expiry_date < ? ORDER BY b.expiry_date', [$today]);
+    $expiring = db_all($pdo, 'SELECT b.id, b.expiry_date, b.qty_left, i.name, i.unit FROM stock_batches b JOIN stock_items i ON i.id = b.item_id
+        WHERE b.qty_left > 0 AND b.expiry_date IS NOT NULL AND b.expiry_date BETWEEN ? AND ? ORDER BY b.expiry_date',
+        [$today, date('Y-m-d', strtotime('+30 days'))]);
+    return ['low' => $low, 'expired' => $expired, 'expiring' => $expiring, 'count' => count($low) + count($expired) + count($expiring)];
+}
+
+// Show a stock quantity without useless zeros: 2.500 -> 2.5
+function qty($value): string
+{
+    return rtrim(rtrim(number_format((float)$value, 3, '.', ','), '0'), '.');
+}
+
+
+// ---------------------------------------------------------------------
+// CRASH PROTECTION
+// ---------------------------------------------------------------------
+
+// Make a local backup once a day (kept: newest 14), even without Gmail.
+// Runs at most once per day; any error is only logged, never shown.
+function daily_local_backup(PDO $pdo): void
+{
+    if (setting('last_auto_local_backup') === date('Y-m-d')) {
+        return;
+    }
+    if (!(int)db_value($pdo, "SELECT GET_LOCK('nadiif_local_backup', 0)")) {
+        return;
+    }
+    try {
+        if ((string)db_value($pdo, "SELECT setting_value FROM settings WHERE setting_key = 'last_auto_local_backup'") !== date('Y-m-d')) {
+            save_setting($pdo, 'last_auto_local_backup', date('Y-m-d'));
+            create_backup($pdo, 'auto');
+            delete_old_auto_backups(14);
+        }
+    } catch (Throwable $e) {
+        error_log('Daily local backup failed: ' . $e->getMessage());
+    } finally {
+        db_value($pdo, "SELECT RELEASE_LOCK('nadiif_local_backup')");
+    }
+}
+
+
+// ---------------------------------------------------------------------
+// COMPANY ASSETS
+// ---------------------------------------------------------------------
+
+function asset_categories(): array
+{
+    return ['Shelf', 'Computer', 'Printer', 'Phone', 'Washing Machine', 'Dryer', 'Iron', 'Vehicle', 'Furniture', 'Other'];
+}
+
+function asset_conditions(): array
+{
+    return ['Good', 'Needs Repair', 'Broken'];
 }

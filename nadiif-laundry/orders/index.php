@@ -50,7 +50,7 @@ require __DIR__ . '/../includes/header.php';
 <div class="card shadow-sm">
     <div class="table-responsive">
         <table class="table table-hover mb-0">
-            <thead><tr><th>Order</th><th>Customer</th><th>Date</th><th>Ready By</th><th>Shelf</th><th>Status</th><th>Payment</th><th class="money">Total</th><th class="money">Balance</th><th></th></tr></thead>
+            <thead><tr><th>Order</th><th>Customer</th><th>Created By</th><th>Date</th><th>Ready By</th><th>Shelf</th><th>Status</th><th>Payment</th><th class="money">Total</th><th class="money">Balance</th><th></th></tr></thead>
             <tbody>
             <?php foreach ($orders as $o): ?>
                 <tr>
@@ -58,6 +58,7 @@ require __DIR__ . '/../includes/header.php';
                         <?= $o['pickup_type'] === 'Delivery' ? '<i class="bi bi-truck text-muted" title="Delivery"></i>' : '' ?>
                         <?= $o['service_speed'] !== 'Normal' ? speed_badge($o['service_speed']) : '' ?></td>
                     <td><?= e($o['full_name']) ?><br><small class="text-muted"><?= e($o['phone']) ?></small></td>
+                    <td class="small"><?= e($o['created_by_name'] ?: '-') ?></td>
                     <td><?= show_date($o['order_date']) ?></td>
                     <td><?= $o['ready_at'] ? show_datetime($o['ready_at']) : show_date($o['expected_date']) ?> <?= ready_label($o) ?></td>
                     <td><?= e($o['shelf_number']) ?: '-' ?></td>
@@ -74,7 +75,7 @@ require __DIR__ . '/../includes/header.php';
                     </td>
                 </tr>
             <?php endforeach; ?>
-            <?php if (!$orders): ?><tr><td colspan="10" class="text-center text-muted py-4">No orders found.</td></tr><?php endif; ?>
+            <?php if (!$orders): ?><tr><td colspan="11" class="text-center text-muted py-4">No orders found.</td></tr><?php endif; ?>
             </tbody>
         </table>
     </div>

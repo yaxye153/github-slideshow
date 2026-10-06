@@ -3,6 +3,16 @@
 // Hacking attempts, failed / blocked logins, forbidden pages and visits.
 require_once __DIR__ . '/../auth/auth_check.php';
 
+// Setting: keep tried passwords masked (safer) or full
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'password_logging') {
+    require_csrf('security/index.php');
+    $mode = in_list((string)($_POST['mode'] ?? 'masked'), ['masked', 'full'], 'masked');
+    save_setting($pdo, 'log_tried_passwords', $mode);
+    log_security($pdo, 'setting_changed', $mode === 'full' ? 'warning' : 'info', 'Tried passwords are now recorded: ' . strtoupper($mode));
+    flash('success', 'Saved. From now on tried passwords are recorded ' . ($mode === 'full' ? 'IN FULL.' : 'masked.'));
+    redirect('security/index.php#passwords');
+}
+
 $from = get_date('from', date('Y-m-d', strtotime('-6 days')));
 $to = get_date('to', date('Y-m-d'));
 $severity = in_list((string)($_GET['severity'] ?? ''), ['danger', 'warning', 'info'], '');
@@ -15,7 +25,7 @@ $eventNames = [
     'suspicious_input' => 'Hacking attempt (suspicious input)', 'bad_form_token' => 'Expired / repeated / foreign form',
     'not_logged_in' => 'Form sent without login', 'restore_rejected' => 'Dangerous backup file rejected', 'bad_file_request' => 'Request for a forbidden file',
     'restore' => 'Database restored', 'user_added' => 'User added', 'user_changed' => 'User changed', 'user_removed' => 'User removed',
-    'password_changed' => 'Password changed', 'password_change_failed' => 'Wrong current password (My Account)',
+    'password_changed' => 'Password changed', 'setting_changed' => 'Security setting changed', 'password_change_failed' => 'Wrong current password (My Account)',
 ];
 
 // Summary cards (selected dates)
@@ -35,6 +45,11 @@ $topIps = db_all($pdo, "SELECT ip, COUNT(*) AS n, SUM(severity = 'danger') AS da
         GROUP_CONCAT(DISTINCT NULLIF(username, '') ORDER BY username SEPARATOR ', ') AS usernames
     FROM security_log WHERE created_at BETWEEN ? AND ? AND severity IN ('warning', 'danger')
     GROUP BY ip ORDER BY dangerous DESC, n DESC LIMIT 10", $range);
+
+// Passwords tried in failed / blocked logins
+$tried = db_all($pdo, "SELECT created_at, event, username, tried_password, ip, details FROM security_log
+    WHERE created_at BETWEEN ? AND ? AND event IN ('login_failed', 'login_blocked') AND tried_password IS NOT NULL
+    ORDER BY id DESC LIMIT 100", $range);
 
 // Visits (how many times the system was opened)
 [$monthFrom, $monthTo] = period_range('month');
@@ -56,8 +71,8 @@ $p = paginate((int)db_value($pdo, "SELECT COUNT(*) FROM security_log $whereSql",
 $events = db_all($pdo, "SELECT * FROM security_log $whereSql ORDER BY id DESC LIMIT {$p['limit']} OFFSET {$p['offset']}", $params);
 
 if (($_GET['export'] ?? '') === 'csv') {
-    $rows = db_all($pdo, "SELECT created_at, severity, event, username, ip, page, details, user_agent FROM security_log $whereSql ORDER BY id DESC", $params);
-    send_csv('nadiif_security_' . $from . '_to_' . $to . '.csv', ['Time', 'Level', 'Event', 'Username', 'IP', 'Page', 'Details', 'Browser'], $rows);
+    $rows = db_all($pdo, "SELECT created_at, severity, event, username, tried_password, ip, page, details, user_agent FROM security_log $whereSql ORDER BY id DESC", $params);
+    send_csv('nadiif_security_' . $from . '_to_' . $to . '.csv', ['Time', 'Level', 'Event', 'Username', 'Password tried', 'IP', 'Page', 'Details', 'Browser'], $rows);
 }
 
 $pageTitle = 'Security Report';
@@ -66,7 +81,8 @@ require __DIR__ . '/../includes/header.php';
 <div class="page-header">
     <h1><i class="bi bi-shield-check"></i> Security Report</h1>
     <div class="d-flex gap-2 flex-wrap no-print">
-        <a class="btn btn-outline-primary" href="activity.php"><i class="bi bi-list-check"></i> Footprints (all events)</a>
+        <a class="btn btn-outline-primary" href="activity.php"><i class="bi bi-list-check"></i> Footprints</a>
+        <a class="btn btn-outline-primary" href="health.php"><i class="bi bi-heart-pulse"></i> System Health</a>
         <button class="btn btn-outline-dark" onclick="window.print()"><i class="bi bi-printer"></i> Print</button>
         <a class="btn btn-success" href="?<?= e(http_build_query(['from' => $from, 'to' => $to, 'severity' => $severity, 'q' => $q, 'export' => 'csv'])) ?>"><i class="bi bi-filetype-csv"></i> CSV</a>
     </div>
@@ -89,6 +105,39 @@ require __DIR__ . '/../includes/header.php';
             <div><div class="stat-label"><?= e($label) ?></div><div class="stat-value"><?= $n ?></div></div><i class="bi <?= $icon ?> stat-icon"></i>
         </div></div></div>
     <?php endforeach; ?>
+</div>
+
+<div class="section-title" id="passwords">Passwords tried (failed logins)</div>
+<div class="row g-3 mb-3">
+    <div class="col-lg-8">
+        <div class="card shadow-sm h-100"><div class="table-responsive"><table class="table table-sm table-hover mb-0">
+            <thead><tr><th>Time</th><th>Username tried</th><th>Password tried</th><th>IP</th><th>Result</th></tr></thead>
+            <?php foreach ($tried as $t): ?>
+                <tr class="<?= $t['event'] === 'login_blocked' ? 'table-danger' : '' ?>">
+                    <td class="small text-nowrap"><?= show_datetime($t['created_at']) ?></td>
+                    <td><?= e($t['username']) ?></td>
+                    <td><code><?= e($t['tried_password']) ?></code></td>
+                    <td class="small"><?= e($t['ip']) ?></td>
+                    <td class="small"><?= $t['event'] === 'login_blocked' ? '<span class="text-danger">BLOCKED</span>' : e($t['details']) ?></td>
+                </tr>
+            <?php endforeach; ?>
+            <?php if (!$tried): ?><tr><td colspan="5" class="text-center text-muted py-3">No failed logins for these dates.</td></tr><?php endif; ?>
+        </table></div></div>
+    </div>
+    <div class="col-lg-4">
+        <form method="post" class="card shadow-sm h-100 no-print"><div class="card-body">
+            <?= csrf_field() ?><input type="hidden" name="action" value="password_logging">
+            <h3 class="h6">How to record tried passwords</h3>
+            <div class="form-check"><input class="form-check-input" type="radio" name="mode" value="masked" id="pm" <?= setting('log_tried_passwords', 'masked') !== 'full' ? 'checked' : '' ?>>
+                <label class="form-check-label" for="pm"><b>Masked</b> (recommended), e.g. <code>ad••••56 (8)</code></label></div>
+            <div class="form-check mb-2"><input class="form-check-input" type="radio" name="mode" value="full" id="pf" <?= setting('log_tried_passwords', 'masked') === 'full' ? 'checked' : '' ?>>
+                <label class="form-check-label" for="pf"><b>Full</b> password as typed</label></div>
+            <div class="small text-muted mb-2">Warning: when your own staff make a small typing mistake, their real password (which they may also use for
+                Gmail, EVC Plus or the bank) would be saved in full. Masked still shows the length and the first/last letters of a guess.
+                Successful logins never record a password.</div>
+            <button class="btn btn-outline-primary btn-sm" type="submit">Save</button>
+        </div></form>
+    </div>
 </div>
 
 <div class="section-title">Visits</div>
@@ -122,7 +171,7 @@ require __DIR__ . '/../includes/header.php';
 <div class="card shadow-sm">
     <div class="table-responsive">
         <table class="table table-sm table-hover mb-0">
-            <thead><tr><th>Time</th><th>Level</th><th>Event</th><th>Username</th><th>IP</th><th>Page</th><th>Details</th></tr></thead>
+            <thead><tr><th>Time</th><th>Level</th><th>Event</th><th>Username</th><th>Password tried</th><th>IP</th><th>Page</th><th>Details</th></tr></thead>
             <tbody>
             <?php foreach ($events as $ev): ?>
                 <tr class="<?= $ev['severity'] === 'danger' ? 'table-danger' : ($ev['severity'] === 'warning' ? 'table-warning' : '') ?>">
@@ -130,12 +179,13 @@ require __DIR__ . '/../includes/header.php';
                     <td><span class="badge bg-<?= $ev['severity'] === 'danger' ? 'danger' : ($ev['severity'] === 'warning' ? 'warning text-dark' : 'secondary') ?>"><?= e(strtoupper($ev['severity'])) ?></span></td>
                     <td><?= e($eventNames[$ev['event']] ?? $ev['event']) ?></td>
                     <td><?= e($ev['username']) ?></td>
+                    <td><?= $ev['tried_password'] !== null ? '<code>' . e($ev['tried_password']) . '</code>' : '' ?></td>
                     <td class="small"><?= e($ev['ip']) ?></td>
                     <td class="small"><?= e($ev['page']) ?></td>
                     <td class="small" style="max-width: 360px; word-break: break-word"><?= e($ev['details']) ?></td>
                 </tr>
             <?php endforeach; ?>
-            <?php if (!$events): ?><tr><td colspan="7" class="text-center text-muted py-4">No security events for these dates.</td></tr><?php endif; ?>
+            <?php if (!$events): ?><tr><td colspan="8" class="text-center text-muted py-4">No security events for these dates.</td></tr><?php endif; ?>
             </tbody>
         </table>
     </div>

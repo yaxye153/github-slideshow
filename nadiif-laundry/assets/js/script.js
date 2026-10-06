@@ -82,13 +82,15 @@ function initOrderItems() {
         var service = row.querySelector('select[name="service_type[]"]').value.toLowerCase();
         var priceInput = row.querySelector('.item-price');
         var key = name + '|' + service;
+        var pkg = speed ? speed.value : 'Normal';   // Normal / Silver / Gold have their own prices
         if (Object.prototype.hasOwnProperty.call(prices, key) && (priceInput.value === '' || priceInput.dataset.auto === '1')) {
-            priceInput.value = Number(prices[key]).toFixed(2);
+            var p = prices[key][pkg] !== undefined ? prices[key][pkg] : prices[key].Normal;
+            priceInput.value = Number(p).toFixed(2);
             priceInput.dataset.auto = '1';
         }
     }
 
-    // Express/VIP % and customer level discount % (same rules as the server)
+    // Package extra % (old orders only) and customer level discount % (same rules as the server)
     function percents() {
         var speedPct = 0, discountPct = 0;
         var editing = table.dataset.edit === '1';
@@ -172,7 +174,13 @@ function initOrderItems() {
     });
     var paidInput = document.getElementById('amount_paid');
     if (paidInput) { paidInput.addEventListener('input', recalc); }
-    if (speed) { speed.addEventListener('change', recalc); }
+    if (speed) {
+        // New package: use that package's prices for the rows that were filled automatically
+        speed.addEventListener('change', function () {
+            body.querySelectorAll('tr').forEach(fillPrice);
+            recalc();
+        });
+    }
     if (customer) { customer.addEventListener('change', recalc); }
 
     if (!body.querySelector('tr')) { addRow(); }

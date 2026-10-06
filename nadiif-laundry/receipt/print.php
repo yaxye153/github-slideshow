@@ -67,7 +67,8 @@ $items = db_all($pdo, 'SELECT * FROM order_items WHERE order_id = ? ORDER BY id'
         <tr><td>Customer Name</td><td><?= e($order['full_name']) ?> (<?= e($order['customer_code']) ?>)</td></tr>
         <tr><td>Phone</td><td><?= e($order['phone']) ?></td></tr>
         <tr><td>Date</td><td><?= show_date($order['order_date']) ?></td></tr>
-        <tr><td>Service</td><td><?= e($order['service_speed']) ?></td></tr>
+        <tr><td>Package</td><td><?= e($order['service_speed']) ?></td></tr>
+        <?php if ($order['created_by_name']): ?><tr><td>Served by</td><td><?= e($order['created_by_name']) ?></td></tr><?php endif; ?>
         <?php if ($order['shelf_number'] !== null && $order['shelf_number'] !== ''): ?><tr><td>Shelf</td><td><b><?= e($order['shelf_number']) ?></b></td></tr><?php endif; ?>
         <?php if ($order['pickup_type'] === 'Delivery'): ?>
             <tr><td>Delivery</td><td><?= e($order['delivery_address']) ?> <?= e($order['delivery_phone']) ?></td></tr>

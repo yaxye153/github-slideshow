@@ -1,8 +1,9 @@
 <?php
 // orders/form.php - create a new laundry order or edit an existing one.
 // An order has many items. Item total = Quantity x Price.
-// Prices are filled in automatically from the Price List (Settings).
-// Order total = Subtotal + Express/VIP charge - customer level discount.
+// Prices are filled in automatically from the Price List (Settings),
+// using the price of the chosen package (Normal / Silver / Gold).
+// Order total = Subtotal - customer level discount.
 require_once __DIR__ . '/../auth/auth_check.php';
 
 $id = (int)($_GET['id'] ?? 0);
@@ -87,13 +88,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Please enter a valid ready date and time.';
     }
 
-    // Express/VIP charge and customer level discount.
+    // Extra % (only old orders had one) and customer level discount.
     // New order: take them from Settings. Edited order: keep the saved % unless
     // the speed or the customer was changed.
     $order['speed_percent'] = ($id && $order['service_speed'] === $original['service_speed'])
         ? (float)$original['speed_percent'] : $speeds[$order['service_speed']]['percent'];
     $order['discount_percent'] = ($id && $order['customer_id'] === (int)$original['customer_id'])
-        ? (float)$original['discount_percent'] : (float)($tiers[$customerTier[$order['customer_id']] ?? 'Normal'] ?? 0);
+        ? (float)$original['discount_percent'] : (float)($tiers[$customerTier[$order['customer_id']] ?? 'Standard'] ?? 0);
 
     // Calculate order total
     $subtotal = 0.0;
@@ -136,15 +137,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $values = [$order['customer_id'], $order['order_date'], $readyTime->format('Y-m-d'), $readyAt, $order['service_speed'],
                        $order['shelf_number'], $order['speed_percent'], $order['discount_percent'], $order['pickup_type'],
                        $order['delivery_address'], $order['delivery_phone'], $order['status'], $order['notes']];
+            $oldStatus = $original['status'] ?? null;
             if ($id) {
                 db_query($pdo, 'UPDATE orders SET customer_id = ?, order_date = ?, expected_date = ?, ready_at = ?, service_speed = ?, shelf_number = ?,
                                 speed_percent = ?, discount_percent = ?, pickup_type = ?, delivery_address = ?, delivery_phone = ?, status = ?, notes = ?
                                 WHERE id = ?', array_merge($values, [$id]));
                 db_query($pdo, 'DELETE FROM order_items WHERE order_id = ?', [$id]);
             } else {
+                // Remember which user created the order
                 db_query($pdo, 'INSERT INTO orders (customer_id, order_date, expected_date, ready_at, service_speed, shelf_number, speed_percent,
-                                discount_percent, pickup_type, delivery_address, delivery_phone, status, notes)
-                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', $values);
+                                discount_percent, pickup_type, delivery_address, delivery_phone, status, notes, created_by, created_by_name)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', array_merge($values, [$CURRENT_USER['id'], $CURRENT_USER['username']]));
                 $id = (int)$pdo->lastInsertId();
                 db_query($pdo, 'UPDATE orders SET order_number = ? WHERE id = ?', [sprintf('ORD-%06d', $id), $id]);
             }
@@ -166,6 +169,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'Payment for order ' . $number, $payment['amount_paid'], $payment['payment_method'], $number);
             }
 
+            // Order trace: write the step (new order, or status changed while editing)
+            if ($isNew) {
+                log_order_step($pdo, $id, $order['status'], 'Order created (' . $order['service_speed'] . ')');
+            } elseif ($oldStatus !== $order['status']) {
+                log_order_step($pdo, $id, $order['status'], 'Changed while editing the order');
+            }
+
             // Update total, paid, balance and payment status
             recalc_order($pdo, $id);
             $pdo->commit();
@@ -185,6 +195,8 @@ if (!$items) {
 // Item names for the suggestion list: common names + names in the price list
 $itemNames = array_values(array_unique(array_merge(laundry_item_names(),
     db_query($pdo, 'SELECT DISTINCT item_name FROM price_list ORDER BY item_name')->fetchAll(PDO::FETCH_COLUMN))));
+// Shelves from Company Assets (category Shelf), to choose quickly
+$shelves = db_query($pdo, "SELECT COALESCE(NULLIF(asset_code, ''), name) FROM assets WHERE category = 'Shelf' AND is_active = 1 ORDER BY 1")->fetchAll(PDO::FETCH_COLUMN);
 $readyValue = $order['ready_at'] ? date('Y-m-d\TH:i', strtotime($order['ready_at'])) : '';
 
 // One row of the items table (also used as the template for "Add Item")
@@ -232,7 +244,7 @@ require __DIR__ . '/../includes/header.php';
                                     data-tier="<?= e($c['tier']) ?>" data-discount="<?= (float)($tiers[$c['tier']] ?? 0) ?>"
                                     data-active="<?= (int)$c['active_orders'] ?>" data-shelves="<?= e($c['shelves']) ?>"
                                     <?= (int)$order['customer_id'] === (int)$c['id'] ? 'selected' : '' ?>>
-                                <?= e($c['full_name'] . ' - ' . $c['phone'] . ' (' . $c['customer_code'] . ')' . ($c['tier'] !== 'Normal' ? ' - ' . $c['tier'] : '')) ?>
+                                <?= e($c['full_name'] . ' - ' . $c['phone'] . ' (' . $c['customer_code'] . ')' . ($c['tier'] !== 'Standard' ? ' - ' . $c['tier'] : '')) ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
@@ -247,14 +259,15 @@ require __DIR__ . '/../includes/header.php';
             </div>
             <div class="col-6 col-lg-3">
                 <label class="form-label">Shelf Number</label>
-                <input class="form-control" name="shelf_number" value="<?= e($order['shelf_number']) ?>" placeholder="e.g. A-12" maxlength="20">
+                <input class="form-control" name="shelf_number" value="<?= e($order['shelf_number']) ?>" placeholder="e.g. A-12" maxlength="20" list="shelf-list">
+                <datalist id="shelf-list"><?= options($shelves) ?></datalist>
             </div>
             <div class="col-6 col-lg-3">
                 <label class="form-label">Service Speed</label>
                 <select class="form-select" name="service_speed" id="service_speed">
                     <?php foreach ($speeds as $name => $sp): ?>
                         <option value="<?= $name ?>" data-hours="<?= $sp['hours'] ?>" data-percent="<?= $sp['percent'] ?>" <?= $order['service_speed'] === $name ? 'selected' : '' ?>>
-                            <?= $name ?> (<?= $sp['hours'] ?> hours<?= $sp['percent'] > 0 ? ', +' . (float)$sp['percent'] . '%' : '' ?>)
+                            <?= $name ?> (<?= $sp['hours'] >= 24 && $sp['hours'] % 24 === 0 ? ($sp['hours'] / 24) . ' days' : $sp['hours'] . ' hours' ?>)
                         </option>
                     <?php endforeach; ?>
                 </select>
@@ -303,7 +316,7 @@ require __DIR__ . '/../includes/header.php';
                 </tbody>
                 <tfoot>
                     <tr><td colspan="4" class="text-end">Subtotal</td><td class="money" id="order-subtotal"><?= money(0) ?></td><td></td></tr>
-                    <tr id="row-speed"><td colspan="4" class="text-end">Express / VIP charge <span id="speed-percent"></span></td><td class="money" id="order-speed"><?= money(0) ?></td><td></td></tr>
+                    <tr id="row-speed"><td colspan="4" class="text-end">Package extra charge <span id="speed-percent"></span></td><td class="money" id="order-speed"><?= money(0) ?></td><td></td></tr>
                     <tr id="row-discount"><td colspan="4" class="text-end">Customer level discount <span id="discount-percent"></span></td><td class="money" id="order-discount"><?= money(0) ?></td><td></td></tr>
                     <tr><th colspan="4" class="text-end">Order Total</th><th class="money fs-5" id="order-total"><?= money(0) ?></th><th></th></tr>
                 </tfoot>
@@ -311,7 +324,7 @@ require __DIR__ . '/../includes/header.php';
         </div>
         <template id="item-row-template"><?= item_row(['item_name' => '', 'quantity' => 1, 'service_type' => $services[0] ?? '', 'price' => ''], $services) ?></template>
         <datalist id="item-names"><?= options($itemNames) ?></datalist>
-        <div class="card-footer small text-muted">Prices come automatically from the <a href="../settings/prices.php">Price List</a>. You can still change a price for this order.</div>
+        <div class="card-footer small text-muted">Prices come automatically from the <a href="../settings/prices.php">Price List</a> for the chosen package (Normal / Silver / Gold). You can still change a price for this order.</div>
     </div>
 
     <?php if (!$id && can('payments')): ?>

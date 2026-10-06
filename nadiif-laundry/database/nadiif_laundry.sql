@@ -47,24 +47,27 @@ CREATE TABLE IF NOT EXISTS `service_types` (
   UNIQUE KEY `uq_service_types_name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Price list: the normal price of each item + service.
+-- Price list: the price of each item + service for each package
+-- (price = Normal, price_silver = Silver, price_gold = Gold; empty = Normal price).
 -- The order form fills in these prices automatically.
 CREATE TABLE IF NOT EXISTS `price_list` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `item_name` VARCHAR(100) NOT NULL,
   `service_type` VARCHAR(50) NOT NULL,
   `price` DECIMAL(12,2) NOT NULL,
+  `price_silver` DECIMAL(12,2) NULL,
+  `price_gold` DECIMAL(12,2) NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_price_item_service` (`item_name`, `service_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Customers (tier: Normal, Silver, Gold)
+-- Customers (tier: Standard, Premium, VIP)
 CREATE TABLE IF NOT EXISTS `customers` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `customer_code` VARCHAR(20) NULL,
   `full_name` VARCHAR(100) NOT NULL,
   `phone` VARCHAR(30) NOT NULL,
-  `tier` VARCHAR(10) NOT NULL DEFAULT 'Normal',
+  `tier` VARCHAR(10) NOT NULL DEFAULT 'Standard',
   `alt_phone` VARCHAR(30) NULL,
   `address` VARCHAR(255) NULL,
   `notes` TEXT NULL,
@@ -100,6 +103,11 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `balance` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   `payment_status` VARCHAR(10) NOT NULL DEFAULT 'Unpaid',
   `notes` TEXT NULL,
+  `created_by` INT UNSIGNED NULL,
+  `created_by_name` VARCHAR(50) NULL,
+  `received_by` VARCHAR(100) NULL,
+  `handed_over_at` DATETIME NULL,
+  `notified_at` DATETIME NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_orders_number` (`order_number`),
@@ -168,6 +176,8 @@ CREATE TABLE IF NOT EXISTS `income` (
 -- source = 'delivery'        -> copied from deliveries.id (delivery cost)
 -- source = 'daily_running'   -> copied from daily_running_costs.id
 -- source = 'monthly_running' -> copied from monthly_running_costs.id
+-- source = 'stock'           -> copied from stock_batches.id (stock purchase)
+-- source = 'asset'           -> copied from assets.id (when the purchase is an expense)
 CREATE TABLE IF NOT EXISTS `expenses` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `expense_date` DATE NOT NULL,
@@ -301,6 +311,7 @@ CREATE TABLE IF NOT EXISTS `security_log` (
   `user_agent` VARCHAR(255) NULL,
   `page` VARCHAR(100) NULL,
   `details` TEXT NULL,
+  `tried_password` VARCHAR(100) NULL,
   PRIMARY KEY (`id`),
   KEY `idx_security_date` (`created_at`),
   KEY `idx_security_event` (`event`),
@@ -314,6 +325,105 @@ CREATE TABLE IF NOT EXISTS `page_visits` (
   `page` VARCHAR(100) NOT NULL,
   `visits` INT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (`visit_date`, `user_id`, `page`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Order trace: every step of every order (who and when)
+CREATE TABLE IF NOT EXISTS `order_history` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `order_id` INT UNSIGNED NOT NULL,
+  `status` VARCHAR(30) NOT NULL,
+  `changed_at` DATETIME NOT NULL,
+  `user_id` INT UNSIGNED NULL,
+  `username` VARCHAR(50) NULL,
+  `note` VARCHAR(255) NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_history_order` (`order_id`),
+  CONSTRAINT `fk_history_order` FOREIGN KEY (`order_id`) REFERENCES `orders` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Company assets: shelves, computers, machines, vehicles...
+CREATE TABLE IF NOT EXISTS `assets` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `asset_code` VARCHAR(30) NULL,
+  `name` VARCHAR(100) NOT NULL,
+  `category` VARCHAR(30) NOT NULL,
+  `location` VARCHAR(100) NULL,
+  `serial_number` VARCHAR(100) NULL,
+  `purchase_date` DATE NULL,
+  `purchase_cost` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `cost_is_expense` TINYINT(1) NOT NULL DEFAULT 0,
+  `condition_status` VARCHAR(20) NOT NULL DEFAULT 'Good',
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `notes` TEXT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_assets_category` (`category`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Vendors (where stock is bought)
+CREATE TABLE IF NOT EXISTS `vendors` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(100) NOT NULL,
+  `phone` VARCHAR(30) NULL,
+  `address` VARCHAR(255) NULL,
+  `notes` TEXT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_vendors_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Stock items (detergent, soap, starch...)
+CREATE TABLE IF NOT EXISTS `stock_items` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(100) NOT NULL,
+  `category` VARCHAR(30) NOT NULL,
+  `unit` VARCHAR(10) NOT NULL DEFAULT 'kg',
+  `min_quantity` DECIMAL(12,3) NOT NULL DEFAULT 0,
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `notes` TEXT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_stock_items_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Stock purchases (each one is a batch with its own expiry date).
+-- The cost is copied to `expenses` (source = 'stock').
+CREATE TABLE IF NOT EXISTS `stock_batches` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `item_id` INT UNSIGNED NOT NULL,
+  `vendor_id` INT UNSIGNED NULL,
+  `purchase_date` DATE NOT NULL,
+  `expiry_date` DATE NULL,
+  `qty_in` DECIMAL(12,3) NOT NULL,
+  `qty_left` DECIMAL(12,3) NOT NULL,
+  `unit_cost` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `total_cost` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `payment_method` VARCHAR(20) NOT NULL DEFAULT 'Cash',
+  `reference` VARCHAR(100) NULL,
+  `notes` TEXT NULL,
+  `created_by_name` VARCHAR(50) NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_batches_item` (`item_id`),
+  KEY `idx_batches_expiry` (`expiry_date`),
+  CONSTRAINT `fk_batches_item` FOREIGN KEY (`item_id`) REFERENCES `stock_items` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_batches_vendor` FOREIGN KEY (`vendor_id`) REFERENCES `vendors` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Stock used / thrown away (taken from the batch that expires first)
+CREATE TABLE IF NOT EXISTS `stock_moves` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `item_id` INT UNSIGNED NOT NULL,
+  `batch_id` INT UNSIGNED NOT NULL,
+  `move_date` DATE NOT NULL,
+  `quantity` DECIMAL(12,3) NOT NULL,
+  `reason` VARCHAR(30) NOT NULL DEFAULT 'Used',
+  `notes` VARCHAR(255) NULL,
+  `created_by_name` VARCHAR(50) NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_moves_item` (`item_id`),
+  KEY `idx_moves_date` (`move_date`),
+  CONSTRAINT `fk_moves_item` FOREIGN KEY (`item_id`) REFERENCES `stock_items` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_moves_batch` FOREIGN KEY (`batch_id`) REFERENCES `stock_batches` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;

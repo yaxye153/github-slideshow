@@ -3,7 +3,7 @@
 require_once __DIR__ . '/../auth/auth_check.php';
 
 $id = (int)($_GET['id'] ?? 0);
-$customer = ['full_name' => '', 'tier' => 'Normal', 'phone' => '', 'alt_phone' => '', 'address' => '', 'notes' => '', 'registration_date' => date('Y-m-d')];
+$customer = ['full_name' => '', 'tier' => 'Standard', 'phone' => '', 'alt_phone' => '', 'address' => '', 'notes' => '', 'registration_date' => date('Y-m-d')];
 
 // Get customer information when editing
 if ($id) {
@@ -19,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $customer = [
         'full_name' => post_text('full_name', 100),
         'phone' => post_text('phone', 30),
-        'tier' => in_list(post_text('tier', 10), array_keys(customer_tiers()), 'Normal'),
+        'tier' => in_list(post_text('tier', 10), array_keys(customer_tiers()), 'Standard'),
         'alt_phone' => post_text('alt_phone', 30),
         'address' => post_text('address', 255),
         'notes' => post_text('notes', 2000),
