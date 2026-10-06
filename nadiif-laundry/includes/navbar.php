@@ -2,21 +2,25 @@
 // navbar.php - the menu.
 // Large screens: menu on the left. Phones/tablets: hamburger button.
 $navMenu = [
-    ['dashboard.php',             'Dashboard',        'bi-speedometer2'],
-    ['customers/index.php',       'Customers',        'bi-people'],
-    ['orders/index.php',          'Laundry Orders',   'bi-basket'],
-    ['tracking/index.php',        'Order Tracking',   'bi-geo-alt'],
-    ['payments/index.php',        'Payments',         'bi-cash-coin'],
-    ['income/index.php',          'Income',           'bi-graph-up-arrow'],
-    ['expenses/index.php',        'Expenses',         'bi-graph-down-arrow'],
-    ['salaries/index.php',        'Salaries',         'bi-person-badge'],
-    ['delivery/index.php',        'Delivery',         'bi-truck'],
-    ['daily-running/index.php',   'Daily Running',    'bi-calendar-day'],
-    ['monthly-running/index.php', 'Monthly Running',  'bi-calendar-month'],
-    ['reports/profit_loss.php',   'Profit & Loss',    'bi-bar-chart-line'],
-    ['reports/index.php',         'Reports',          'bi-file-earmark-text'],
-    ['backup/index.php',          'Backup & Restore', 'bi-database-down'],
-    ['settings/index.php',        'Settings',         'bi-gear'],
+    // [link, label, icon, permission needed (null = everyone)]
+    ['dashboard.php',             'Dashboard',        'bi-speedometer2',     null],
+    ['customers/index.php',       'Customers',        'bi-people',           'customers'],
+    ['orders/index.php',          'Laundry Orders',   'bi-basket',           'orders'],
+    ['tracking/index.php',        'Order Tracking',   'bi-geo-alt',          'orders'],
+    ['payments/index.php',        'Payments',         'bi-cash-coin',        'payments'],
+    ['income/index.php',          'Income',           'bi-graph-up-arrow',   'income'],
+    ['expenses/index.php',        'Expenses',         'bi-graph-down-arrow', 'expenses'],
+    ['salaries/index.php',        'Salaries',         'bi-person-badge',     'salaries'],
+    ['delivery/index.php',        'Delivery',         'bi-truck',            'delivery'],
+    ['daily-running/index.php',   'Daily Running',    'bi-calendar-day',     'running'],
+    ['monthly-running/index.php', 'Monthly Running',  'bi-calendar-month',   'running'],
+    ['reports/profit_loss.php',   'Profit & Loss',    'bi-bar-chart-line',   'reports'],
+    ['reports/index.php',         'Reports',          'bi-file-earmark-text','reports'],
+    ['users/index.php',           'Users',            'bi-person-gear',      'admin'],
+    ['security/index.php',        'Security & Footprints', 'bi-shield-check', 'admin'],
+    ['backup/index.php',          'Backup & Restore', 'bi-database-down',    'admin'],
+    ['settings/index.php',        'Settings',         'bi-gear',             'admin'],
+    ['account.php',               'My Account',       'bi-person-circle',    null],
 ];
 $navScript = $_SERVER['SCRIPT_NAME'] ?? '';
 ?>
@@ -41,7 +45,8 @@ $navScript = $_SERVER['SCRIPT_NAME'] ?? '';
             <i class="bi bi-basket2-fill me-2"></i><span><?= e(setting('business_name')) ?></span>
         </a>
         <ul class="nav flex-column w-100 py-2">
-            <?php foreach ($navMenu as [$navLink, $navLabel, $navIcon]):
+            <?php foreach ($navMenu as [$navLink, $navLabel, $navIcon, $navNeeds]):
+                if ($navNeeds !== null && !can($navNeeds)) { continue; } // hide sections the user may not use
                 // Highlight the current section of the menu
                 $navFolder = strpos($navLink, '/') !== false ? dirname($navLink) . '/' : $navLink;
                 $navActive = $navLink === 'reports/profit_loss.php'
@@ -56,6 +61,6 @@ $navScript = $_SERVER['SCRIPT_NAME'] ?? '';
                 <a class="nav-link" href="<?= url('logout.php') ?>"><i class="bi bi-box-arrow-right"></i> Logout</a>
             </li>
         </ul>
-        <div class="small text-white-50 px-3 pb-3 mt-auto">Logged in as <?= e($_SESSION['username'] ?? '') ?></div>
+        <div class="small text-white-50 px-3 pb-3 mt-auto">Logged in as <?= e($_SESSION['username'] ?? '') ?><?= is_admin() ? ' (admin)' : '' ?></div>
     </div>
 </aside>

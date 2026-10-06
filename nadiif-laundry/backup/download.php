@@ -7,6 +7,7 @@ $path = backup_dir() . '/' . $file;
 
 // Only real backup files can be downloaded (no other system files)
 if (!is_backup_filename($file) || !is_file($path)) {
+    log_security($pdo, 'bad_file_request', is_backup_filename($file) ? 'info' : 'danger', 'Requested file: ' . mb_substr((string)($_GET['file'] ?? ''), 0, 200));
     flash('danger', 'Backup file not found.');
     redirect('backup/index.php');
 }

@@ -151,9 +151,9 @@ require __DIR__ . '/../includes/header.php';
     </div>
 </form>
 <?php if ($id): ?>
-    <form method="post" action="delete.php" class="mt-3" data-confirm="Delete this delivery? Its cost and income will also be removed.">
+    <?php if (is_admin()): /* only the admin can delete */ ?><form method="post" action="delete.php" class="mt-3" data-confirm="Delete this delivery? Its cost and income will also be removed.">
         <?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>">
         <button class="btn btn-outline-danger" type="submit"><i class="bi bi-trash"></i> Delete Delivery</button>
-    </form>
+    </form><?php endif; ?>
 <?php endif; ?>
 <?php require __DIR__ . '/../includes/footer.php'; ?>

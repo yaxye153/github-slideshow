@@ -61,10 +61,10 @@ require __DIR__ . '/../includes/header.php';
                     <td class="actions text-end">
                         <?php if ($r['source'] === 'manual'): ?>
                             <a class="btn btn-sm btn-outline-secondary" href="form.php?id=<?= $r['id'] ?>" title="Edit"><i class="bi bi-pencil"></i></a>
-                            <form method="post" action="delete.php" class="d-inline" data-confirm="Delete this expense?">
+                            <?php if (is_admin()): /* only the admin can delete */ ?><form method="post" action="delete.php" class="d-inline" data-confirm="Delete this expense?">
                                 <?= csrf_field() ?><input type="hidden" name="id" value="<?= $r['id'] ?>">
                                 <button class="btn btn-sm btn-outline-danger" type="submit" title="Delete"><i class="bi bi-trash"></i></button>
-                            </form>
+                            </form><?php endif; ?>
                         <?php else: ?>
                             <a class="btn btn-sm btn-outline-secondary" href="<?= e(source_link($r['source'])) ?>" title="Edit it in its own page"><i class="bi bi-link-45deg"></i></a>
                         <?php endif; ?>

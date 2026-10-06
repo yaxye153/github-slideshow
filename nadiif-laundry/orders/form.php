@@ -112,9 +112,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                       . money($order['amount_paid']) . '). Delete a payment first if money was returned.';
         }
     } else {
-        // First payment when the order is created (optional)
+        // First payment when the order is created (optional, needs the Payments permission)
         $payment = [
-            'amount_paid' => post_money('amount_paid'),
+            'amount_paid' => can('payments') ? post_money('amount_paid') : 0.0,
             'payment_method' => in_list(post_text('payment_method', 20), payment_methods(), 'Cash'),
         ];
         if ($payment['amount_paid'] === null || $payment['amount_paid'] < 0) {
@@ -314,7 +314,7 @@ require __DIR__ . '/../includes/header.php';
         <div class="card-footer small text-muted">Prices come automatically from the <a href="../settings/prices.php">Price List</a>. You can still change a price for this order.</div>
     </div>
 
-    <?php if (!$id): ?>
+    <?php if (!$id && can('payments')): ?>
         <div class="card shadow-sm mb-3"><div class="card-body">
             <div class="row g-3 align-items-end">
                 <div class="col-6 col-md-3">
@@ -330,7 +330,7 @@ require __DIR__ . '/../includes/header.php';
                 </div>
             </div>
         </div></div>
-    <?php else: ?>
+    <?php elseif ($id): ?>
         <div class="alert alert-info">Already paid: <b><?= money($order['amount_paid']) ?></b>. To add money, use <b>Add Payment</b> on the order page.</div>
     <?php endif; ?>
 

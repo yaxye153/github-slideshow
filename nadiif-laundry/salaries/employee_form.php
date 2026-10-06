@@ -69,10 +69,10 @@ require __DIR__ . '/../includes/header.php';
     </div>
 </form>
 <?php if ($id): ?>
-    <form method="post" action="employee_delete.php" class="mt-3" data-confirm="Delete this employee?">
+    <?php if (is_admin()): /* only the admin can delete */ ?><form method="post" action="employee_delete.php" class="mt-3" data-confirm="Delete this employee?">
         <?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>">
         <button class="btn btn-outline-danger" type="submit"><i class="bi bi-trash"></i> Delete Employee</button>
         <small class="text-muted ms-2">Employees with salary payments can not be deleted &mdash; set them to Inactive.</small>
-    </form>
+    </form><?php endif; ?>
 <?php endif; ?>
 <?php require __DIR__ . '/../includes/footer.php'; ?>

@@ -69,10 +69,10 @@ $lastEmailMessage = setting('email_backup_last_message');
                             <?= csrf_field() ?><input type="hidden" name="step" value="choose"><input type="hidden" name="file" value="<?= e($b['name']) ?>">
                             <button class="btn btn-sm btn-outline-warning" type="submit"><i class="bi bi-arrow-counterclockwise"></i> Restore</button>
                         </form>
-                        <form method="post" action="delete.php" class="d-inline" data-confirm="Delete this backup file? This cannot be undone.">
+                        <?php if (is_admin()): /* only the admin can delete */ ?><form method="post" action="delete.php" class="d-inline" data-confirm="Delete this backup file? This cannot be undone.">
                             <?= csrf_field() ?><input type="hidden" name="file" value="<?= e($b['name']) ?>">
                             <button class="btn btn-sm btn-outline-danger" type="submit"><i class="bi bi-trash"></i> Delete</button>
-                        </form>
+                        </form><?php endif; ?>
                     </td>
                 </tr>
             <?php endforeach; ?>

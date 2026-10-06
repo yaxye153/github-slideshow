@@ -27,6 +27,7 @@ require_once APP_ROOT . '/config/database.php';
 
 // Show a friendly page instead of a PHP error if something goes wrong
 set_exception_handler(function (Throwable $e) {
+    $GLOBALS['app_failed'] = true;   // the footprint will say "error"
     error_log('NADIIF LAUNDRY error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
     if (!headers_sent()) {
         http_response_code(500);

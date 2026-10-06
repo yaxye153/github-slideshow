@@ -67,7 +67,7 @@ require __DIR__ . '/../includes/header.php';
                     <td class="money"><?= money($o['balance']) ?></td>
                     <td class="actions text-end">
                         <a class="btn btn-sm btn-outline-primary" href="view.php?id=<?= $o['id'] ?>" title="View"><i class="bi bi-eye"></i></a>
-                        <?php if ($o['balance'] > 0 && $o['status'] !== 'Cancelled'): ?>
+                        <?php if ($o['balance'] > 0 && $o['status'] !== 'Cancelled' && can('payments')): ?>
                             <a class="btn btn-sm btn-outline-success" href="../payments/add.php?order_id=<?= $o['id'] ?>" title="Add payment"><i class="bi bi-cash"></i></a>
                         <?php endif; ?>
                         <a class="btn btn-sm btn-outline-secondary" href="../receipt/print.php?id=<?= $o['id'] ?>" target="_blank" title="Print receipt"><i class="bi bi-printer"></i></a>

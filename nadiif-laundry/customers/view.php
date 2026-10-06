@@ -29,10 +29,10 @@ require __DIR__ . '/../includes/header.php';
         <a class="btn btn-primary" href="../orders/form.php?customer_id=<?= $id ?>"><i class="bi bi-basket"></i> New Order</a>
         <a class="btn btn-outline-info" href="../tracking/index.php?customer_id=<?= $id ?>"><i class="bi bi-geo-alt"></i> Track Orders</a>
         <a class="btn btn-outline-secondary" href="form.php?id=<?= $id ?>"><i class="bi bi-pencil"></i> Edit</a>
-        <form method="post" action="delete.php" data-confirm="Delete this customer? This cannot be undone.">
+        <?php if (is_admin()): /* only the admin can delete */ ?><form method="post" action="delete.php" data-confirm="Delete this customer? This cannot be undone.">
             <?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>">
             <button class="btn btn-outline-danger" type="submit"><i class="bi bi-trash"></i> Delete</button>
-        </form>
+        </form><?php endif; ?>
     </div>
 </div>
 

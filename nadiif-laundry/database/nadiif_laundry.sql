@@ -23,6 +23,9 @@ CREATE TABLE IF NOT EXISTS `users` (
   `password_hash` VARCHAR(255) NOT NULL,
   `full_name` VARCHAR(100) NOT NULL DEFAULT 'Administrator',
   `role` VARCHAR(20) NOT NULL DEFAULT 'admin',
+  `permissions` TEXT NULL,
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `last_login` DATETIME NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_users_username` (`username`)
@@ -267,6 +270,50 @@ CREATE TABLE IF NOT EXISTS `monthly_running_costs` (
   PRIMARY KEY (`id`),
   KEY `idx_monthly_period` (`cost_year`, `cost_month`),
   KEY `idx_monthly_payment_date` (`payment_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Footprints: every save / edit / delete / login done in the system
+CREATE TABLE IF NOT EXISTS `activity_log` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `created_at` DATETIME NOT NULL,
+  `user_id` INT UNSIGNED NULL,
+  `username` VARCHAR(50) NULL,
+  `ip` VARCHAR(45) NULL,
+  `page` VARCHAR(100) NOT NULL,
+  `action` VARCHAR(100) NOT NULL,
+  `record_id` INT UNSIGNED NULL,
+  `outcome` VARCHAR(10) NOT NULL DEFAULT 'success',
+  `details` TEXT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_activity_date` (`created_at`),
+  KEY `idx_activity_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Security events: failed logins, blocked logins, forbidden pages, suspicious input...
+CREATE TABLE IF NOT EXISTS `security_log` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `created_at` DATETIME NOT NULL,
+  `event` VARCHAR(50) NOT NULL,
+  `severity` VARCHAR(10) NOT NULL DEFAULT 'info',
+  `user_id` INT UNSIGNED NULL,
+  `username` VARCHAR(50) NULL,
+  `ip` VARCHAR(45) NULL,
+  `user_agent` VARCHAR(255) NULL,
+  `page` VARCHAR(100) NULL,
+  `details` TEXT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_security_date` (`created_at`),
+  KEY `idx_security_event` (`event`),
+  KEY `idx_security_ip` (`ip`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Visits: how many times each page was opened, per user per day
+CREATE TABLE IF NOT EXISTS `page_visits` (
+  `visit_date` DATE NOT NULL,
+  `user_id` INT UNSIGNED NOT NULL,
+  `page` VARCHAR(100) NOT NULL,
+  `visits` INT UNSIGNED NOT NULL DEFAULT 0,
+  PRIMARY KEY (`visit_date`, `user_id`, `page`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;

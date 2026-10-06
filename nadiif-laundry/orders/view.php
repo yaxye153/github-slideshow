@@ -18,12 +18,12 @@ require __DIR__ . '/../includes/header.php';
 <div class="page-header">
     <h1><i class="bi bi-basket"></i> Order <?= e($order['order_number']) ?> <?= speed_badge($order['service_speed']) ?></h1>
     <div class="d-flex gap-2 flex-wrap">
-        <?php if ($order['balance'] > 0 && $order['status'] !== 'Cancelled'): ?>
+        <?php if ($order['balance'] > 0 && $order['status'] !== 'Cancelled' && can('payments')): ?>
             <a class="btn btn-success" href="../payments/add.php?order_id=<?= $id ?>"><i class="bi bi-cash"></i> Add Payment</a>
         <?php endif; ?>
         <a class="btn btn-outline-dark" href="../receipt/print.php?id=<?= $id ?>" target="_blank"><i class="bi bi-printer"></i> Receipt</a>
         <a class="btn btn-outline-secondary" href="form.php?id=<?= $id ?>"><i class="bi bi-pencil"></i> Edit</a>
-        <?php if ($order['pickup_type'] === 'Delivery'): ?>
+        <?php if ($order['pickup_type'] === 'Delivery' && can('delivery')): ?>
             <a class="btn btn-outline-primary" href="../delivery/form.php?order_id=<?= $id ?>"><i class="bi bi-truck"></i> Record Delivery</a>
         <?php endif; ?>
     </div>
@@ -101,10 +101,10 @@ require __DIR__ . '/../includes/header.php';
                     <td><?= e($pay['reference']) ?></td><td><?= e($pay['notes']) ?></td>
                     <td class="money"><?= money($pay['amount']) ?></td>
                     <td class="text-end">
-                        <form method="post" action="../payments/delete.php" data-confirm="Delete this payment? It will also be removed from income.">
+                        <?php if (is_admin()): /* only the admin can delete */ ?><form method="post" action="../payments/delete.php" data-confirm="Delete this payment? It will also be removed from income.">
                             <?= csrf_field() ?><input type="hidden" name="id" value="<?= $pay['id'] ?>">
                             <button class="btn btn-sm btn-outline-danger" type="submit" title="Delete payment"><i class="bi bi-trash"></i></button>
-                        </form>
+                        </form><?php endif; ?>
                     </td>
                 </tr>
             <?php endforeach; ?>
@@ -128,9 +128,9 @@ require __DIR__ . '/../includes/header.php';
     </table></div></div>
 <?php endif; ?>
 
-<form method="post" action="delete.php" class="mt-4" data-confirm="Delete this order? This cannot be undone.">
+<?php if (is_admin()): /* only the admin can delete */ ?><form method="post" action="delete.php" class="mt-4" data-confirm="Delete this order? This cannot be undone.">
     <?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>">
     <button class="btn btn-outline-danger" type="submit" <?= $payments ? 'disabled title="Orders with payments cannot be deleted"' : '' ?>><i class="bi bi-trash"></i> Delete Order</button>
     <?php if ($payments): ?><small class="text-muted ms-2">Orders with payments cannot be deleted. Use status "Cancelled" instead.</small><?php endif; ?>
-</form>
+</form><?php endif; ?>
 <?php require __DIR__ . '/../includes/footer.php'; ?>

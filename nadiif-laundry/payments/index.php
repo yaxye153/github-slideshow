@@ -63,10 +63,10 @@ require __DIR__ . '/../includes/header.php';
                     <td><?= e($pay['reference']) ?></td>
                     <td class="money"><?= money($pay['amount']) ?></td>
                     <td class="text-end">
-                        <form method="post" action="delete.php" data-confirm="Delete this payment? It will also be removed from income.">
+                        <?php if (is_admin()): /* only the admin can delete */ ?><form method="post" action="delete.php" data-confirm="Delete this payment? It will also be removed from income.">
                             <?= csrf_field() ?><input type="hidden" name="id" value="<?= $pay['id'] ?>">
                             <button class="btn btn-sm btn-outline-danger" type="submit" title="Delete"><i class="bi bi-trash"></i></button>
-                        </form>
+                        </form><?php endif; ?>
                     </td>
                 </tr>
             <?php endforeach; ?>

@@ -65,16 +65,16 @@ require __DIR__ . '/includes/header.php';
 <div class="page-header">
     <h1>Dashboard</h1>
     <div class="d-flex gap-2 flex-wrap">
-        <a class="btn btn-primary" href="<?= url('orders/form.php') ?>"><i class="bi bi-plus-lg"></i> New Order</a>
-        <a class="btn btn-outline-primary" href="<?= url('customers/form.php') ?>"><i class="bi bi-person-plus"></i> New Customer</a>
-        <a class="btn btn-outline-info" href="<?= url('tracking/index.php') ?>"><i class="bi bi-geo-alt"></i> Order Tracking</a>
+        <?php if (can('orders')): ?><a class="btn btn-primary" href="<?= url('orders/form.php') ?>"><i class="bi bi-plus-lg"></i> New Order</a><?php endif; ?>
+        <?php if (can('customers')): ?><a class="btn btn-outline-primary" href="<?= url('customers/form.php') ?>"><i class="bi bi-person-plus"></i> New Customer</a><?php endif; ?>
+        <?php if (can('orders')): ?><a class="btn btn-outline-info" href="<?= url('tracking/index.php') ?>"><i class="bi bi-geo-alt"></i> Order Tracking</a><?php endif; ?>
     </div>
 </div>
 
 <?php if (!empty($_SESSION['default_password'])): ?>
     <div class="alert alert-warning d-flex justify-content-between align-items-center flex-wrap gap-2">
         <span><i class="bi bi-shield-exclamation"></i> For better security, change your default admin password from Settings.</span>
-        <a class="btn btn-sm btn-warning" href="<?= url('settings/index.php#password') ?>">Change Password</a>
+        <a class="btn btn-sm btn-warning" href="<?= url('account.php') ?>">Change Password</a>
     </div>
 <?php endif; ?>
 
@@ -84,13 +84,26 @@ $mailConfig = mail_config();
 $lastEmail = strtotime(setting('email_backup_last_success', '')) ?: 0;
 $emailProblem = $mailConfig['enabled'] && (strpos(setting('email_backup_last_message'), 'FAILED') === 0 || ($lastEmail && $lastEmail < strtotime('-2 days')));
 ?>
-<?php if ($emailProblem): ?>
+<?php if ($emailProblem && is_admin()): ?>
     <div class="alert alert-danger d-flex justify-content-between align-items-center flex-wrap gap-2">
         <span><i class="bi bi-envelope-exclamation"></i> The daily email backup is not working. Last successful email: <?= $lastEmail ? show_datetime(date('Y-m-d H:i:s', $lastEmail)) : 'never' ?>.</span>
         <a class="btn btn-sm btn-danger" href="<?= url('backup/email.php') ?>">Check Email Backup</a>
     </div>
 <?php endif; ?>
 
+<?php
+// Security alert for the admin: dangerous events in the last 24 hours
+if (is_admin()):
+    $dangerous = (int)db_value($pdo, "SELECT COUNT(*) FROM security_log WHERE severity = 'danger' AND created_at >= ?", [date('Y-m-d H:i:s', time() - 86400)]);
+    $failedLogins = (int)db_value($pdo, "SELECT COUNT(*) FROM security_log WHERE event = 'login_failed' AND created_at >= ?", [date('Y-m-d H:i:s', time() - 86400)]);
+    if ($dangerous > 0 || $failedLogins >= 5): ?>
+        <div class="alert alert-danger d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span><i class="bi bi-shield-exclamation"></i> Security: <?= $dangerous ?> dangerous event(s) and <?= $failedLogins ?> failed login(s) in the last 24 hours.</span>
+            <a class="btn btn-sm btn-danger" href="<?= url('security/index.php') ?>">Open Security Report</a>
+        </div>
+<?php endif; endif; ?>
+
+<?php if (can('finance_dashboard')): ?>
 <div class="section-title">Financial Summary</div>
 <div class="row g-3">
     <?= stat_card("Today's Income", money($todayIncome), 'bi-graph-up-arrow', 'green') ?>
@@ -102,6 +115,8 @@ $emailProblem = $mailConfig['enabled'] && (strpos(setting('email_backup_last_mes
     <?= stat_card('Monthly Profit/Loss', profit_value($monthIncome - $monthExpenses), 'bi-wallet2') ?>
     <?= stat_card('Yearly Profit/Loss', profit_value($yearIncome - $yearExpenses), 'bi-calendar3') ?>
 </div>
+
+<?php endif; ?>
 
 <div class="section-title">Orders</div>
 <div class="row g-3">
@@ -116,6 +131,7 @@ $emailProblem = $mailConfig['enabled'] && (strpos(setting('email_backup_last_mes
     <?= stat_card('Express / VIP in shop', (string)$expressActive, 'bi-lightning-charge', 'orange') ?>
 </div>
 
+<?php if (can('finance_dashboard')): ?>
 <div class="section-title">Business Costs (<?= date('F Y') ?>)</div>
 <div class="row g-3">
     <?= stat_card('Salaries', money($monthSalaries), 'bi-person-badge', 'red') ?>
@@ -125,6 +141,9 @@ $emailProblem = $mailConfig['enabled'] && (strpos(setting('email_backup_last_mes
     <?= stat_card('Monthly Running Costs', money($monthMonthly), 'bi-calendar-month', 'red') ?>
 </div>
 
+<?php endif; ?>
+
+<?php if (can('orders')): ?>
 <div class="section-title">Latest Orders</div>
 <div class="card shadow-sm">
     <div class="table-responsive">
@@ -148,4 +167,5 @@ $emailProblem = $mailConfig['enabled'] && (strpos(setting('email_backup_last_mes
         </table>
     </div>
 </div>
+<?php endif; ?>
 <?php require __DIR__ . '/includes/footer.php'; ?>

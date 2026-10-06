@@ -230,6 +230,10 @@ function verify_csrf(): bool
 function require_csrf(string $backTo): void
 {
     if (!verify_csrf()) {
+        global $pdo;
+        if ($pdo instanceof PDO) {
+            log_security($pdo, 'bad_form_token', 'info', 'Form sent twice, expired, or sent from another website');
+        }
         flash('warning', 'This form was already submitted or has expired. Please check the list before trying again.');
         redirect($backTo);
     }
@@ -537,7 +541,7 @@ function theme_attributes(): string
 // When a new version adds tables or columns, they are added here
 // automatically. Existing data is never deleted.
 
-const APP_DB_VERSION = 2;
+const APP_DB_VERSION = 3;
 
 function column_exists(PDO $pdo, string $table, string $column): bool
 {
@@ -575,6 +579,24 @@ function run_upgrades(PDO $pdo): void
     }
     if (!db_value($pdo, "SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders' AND INDEX_NAME = 'idx_orders_ready'")) {
         $pdo->exec('ALTER TABLE orders ADD KEY `idx_orders_ready` (`ready_at`)');
+    }
+
+    // Version 3: users with permissions, activity log (footprints), security log, visits
+    $userColumns = [
+        ['permissions', 'TEXT NULL AFTER `role`'],
+        ['is_active', 'TINYINT(1) NOT NULL DEFAULT 1 AFTER `permissions`'],
+        ['last_login', 'DATETIME NULL AFTER `is_active`'],
+    ];
+    foreach ($userColumns as [$column, $definition]) {
+        if (!column_exists($pdo, 'users', $column)) {
+            $pdo->exec("ALTER TABLE `users` ADD COLUMN `$column` $definition");
+        }
+    }
+    $schema = (string)file_get_contents(APP_ROOT . '/database/nadiif_laundry.sql');
+    foreach (sql_split_statements($schema) as $statement) {
+        if (preg_match('/^CREATE TABLE IF NOT EXISTS `(activity_log|security_log|page_visits)`/', $statement)) {
+            $pdo->exec($statement);
+        }
     }
 
     save_setting($pdo, 'db_version', (string)APP_DB_VERSION);
@@ -1175,4 +1197,213 @@ function delete_old_auto_backups(int $keep): void
     foreach (array_slice($auto, $keep) as $old) {
         unlink(backup_dir() . '/' . $old['name']);
     }
+}
+
+
+// ---------------------------------------------------------------------
+// USERS AND PERMISSIONS
+// ---------------------------------------------------------------------
+// The admin has every permission. Other users only get the sections the
+// admin ticks for them. Deleting anything is ALWAYS admin only.
+
+// Sections a user can be allowed to use
+function permission_list(): array
+{
+    return [
+        'customers'        => 'Customers',
+        'orders'           => 'Laundry Orders, Order Tracking, Receipts',
+        'payments'         => 'Payments (take money from customers)',
+        'income'           => 'Income',
+        'expenses'         => 'Expenses',
+        'salaries'         => 'Salaries & Employees',
+        'delivery'         => 'Delivery',
+        'running'          => 'Daily & Monthly Running Costs',
+        'reports'          => 'Reports and Profit & Loss',
+        'finance_dashboard'=> 'See money totals on the Dashboard',
+    ];
+}
+
+// Which permission each folder needs ('admin' = administrator only)
+function page_permission(string $page): ?string
+{
+    $map = [
+        'customers/' => 'customers', 'orders/' => 'orders', 'tracking/' => 'orders', 'receipt/' => 'orders',
+        'payments/' => 'payments', 'income/' => 'income', 'expenses/' => 'expenses', 'salaries/' => 'salaries',
+        'delivery/' => 'delivery', 'daily-running/' => 'running', 'monthly-running/' => 'running', 'reports/' => 'reports',
+        'backup/' => 'admin', 'settings/' => 'admin', 'users/' => 'admin', 'security/' => 'admin',
+    ];
+    foreach ($map as $folder => $permission) {
+        if (strpos($page, $folder) === 0) {
+            return $permission;
+        }
+    }
+    return null;   // dashboard, My Account, logout: every logged-in user
+}
+
+function is_admin(): bool
+{
+    global $CURRENT_USER;
+    return !empty($CURRENT_USER) && $CURRENT_USER['role'] === 'admin';
+}
+
+// Can the logged-in user use this section?
+function can(string $permission): bool
+{
+    global $CURRENT_USER;
+    if (empty($CURRENT_USER)) {
+        return false;
+    }
+    if ($CURRENT_USER['role'] === 'admin') {
+        return true;
+    }
+    if ($permission === 'admin') {
+        return false;
+    }
+    return in_array($permission, user_permissions($CURRENT_USER), true);
+}
+
+function user_permissions(array $user): array
+{
+    $list = json_decode((string)($user['permissions'] ?? ''), true);
+    return is_array($list) ? array_values(array_intersect($list, array_keys(permission_list()))) : [];
+}
+
+// This page, e.g. "orders/form.php"
+function current_page(): string
+{
+    $script = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
+    return mb_substr(ltrim(BASE_URL !== '' && strpos($script, BASE_URL) === 0 ? substr($script, strlen(BASE_URL)) : $script, '/'), 0, 100);
+}
+
+
+// ---------------------------------------------------------------------
+// SECURITY LOG, ACTIVITY LOG (FOOTPRINTS) AND VISITS
+// ---------------------------------------------------------------------
+
+// The visitor's IP address (only REMOTE_ADDR: other headers can be faked)
+function client_ip(): string
+{
+    return mb_substr((string)($_SERVER['REMOTE_ADDR'] ?? 'cli'), 0, 45);
+}
+
+// Save a security event. Severity: info, warning, danger
+function log_security(PDO $pdo, string $event, string $severity, string $details = '', ?string $username = null): void
+{
+    global $CURRENT_USER;
+    try {
+        db_query($pdo, 'INSERT INTO security_log (created_at, event, severity, user_id, username, ip, user_agent, page, details)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [date('Y-m-d H:i:s'), $event, $severity, $CURRENT_USER['id'] ?? null,
+             mb_substr($username ?? ($CURRENT_USER['username'] ?? ''), 0, 50), client_ip(),
+             mb_substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255), current_page(), mb_substr($details, 0, 2000)]);
+    } catch (Throwable $e) {
+        error_log('Could not write security log: ' . $e->getMessage());
+    }
+}
+
+// Save one footprint (who did what, when, from where)
+function log_activity(PDO $pdo, string $action, string $outcome = 'success', string $details = '', ?int $recordId = null): void
+{
+    global $CURRENT_USER;
+    try {
+        db_query($pdo, 'INSERT INTO activity_log (created_at, user_id, username, ip, page, action, record_id, outcome, details)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [date('Y-m-d H:i:s'), $CURRENT_USER['id'] ?? null, $CURRENT_USER['username'] ?? null, client_ip(), current_page(),
+             mb_substr($action, 0, 100), $recordId, $outcome, mb_substr($details, 0, 2000)]);
+    } catch (Throwable $e) {
+        error_log('Could not write activity log: ' . $e->getMessage());
+    }
+}
+
+// Count one visit of this page by this user today
+function count_visit(PDO $pdo, int $userId): void
+{
+    try {
+        db_query($pdo, 'INSERT INTO page_visits (visit_date, user_id, page, visits) VALUES (?, ?, ?, 1)
+                        ON DUPLICATE KEY UPDATE visits = visits + 1', [date('Y-m-d'), $userId, current_page()]);
+    } catch (Throwable $e) {
+        error_log('Could not count visit: ' . $e->getMessage());
+    }
+}
+
+// Friendly name of the action of a page, e.g. "orders/form.php" -> "Laundry Orders: save"
+function page_action_name(string $page): string
+{
+    $sections = ['customers' => 'Customers', 'orders' => 'Laundry Orders', 'tracking' => 'Order Tracking', 'payments' => 'Payments',
+                 'income' => 'Income', 'expenses' => 'Expenses', 'salaries' => 'Salaries', 'delivery' => 'Delivery',
+                 'daily-running' => 'Daily Running', 'monthly-running' => 'Monthly Running', 'reports' => 'Reports',
+                 'backup' => 'Backup', 'settings' => 'Settings', 'users' => 'Users', 'security' => 'Security', 'auth' => 'Login'];
+    $parts = explode('/', $page);
+    $section = count($parts) > 1 ? ($sections[$parts[0]] ?? $parts[0]) : 'System';
+    $file = basename($page, '.php');
+    $verbs = ['form' => 'save', 'add' => 'add', 'delete' => 'DELETE', 'employee_delete' => 'DELETE employee', 'status' => 'change status',
+              'pay' => 'pay salary', 'employee_form' => 'save employee', 'create' => 'create backup', 'restore' => 'restore',
+              'prices' => 'save prices', 'services' => 'service types', 'index' => 'update', 'email' => 'email backup settings', 'account' => 'my account'];
+    return $section . ': ' . ($verbs[$file] ?? $file);
+}
+
+// Form fields to keep in the footprint (never passwords or tokens)
+function safe_post_summary(): string
+{
+    $hidden = ['csrf_token', 'password', 'current_password', 'new_password', 'confirm_password', 'confirm', 'app_password'];
+    $parts = [];
+    foreach ($_POST as $key => $value) {
+        if (in_array($key, $hidden, true) || stripos((string)$key, 'password') !== false) {
+            continue;
+        }
+        if (is_array($value)) {
+            $value = implode(', ', array_map(function ($v) { return is_array($v) ? '[...]' : (string)$v; }, array_slice($value, 0, 20)));
+        }
+        $value = trim((string)$value);
+        if ($value !== '') {
+            $parts[] = $key . '=' . mb_substr($value, 0, 80);
+        }
+    }
+    return mb_substr(implode('; ', $parts), 0, 1500);
+}
+
+// Look for common hacking patterns in what was sent (the system is protected
+// against them anyway - this only records the attempt for the admin)
+function suspicious_input(): string
+{
+    $patterns = [
+        'SQL injection' => '/(\bunion\b[\s\S]{0,40}\bselect\b|\bor\b\s+[\'"]?\d+[\'"]?\s*=\s*[\'"]?\d+|\bsleep\s*\(\s*\d|\bbenchmark\s*\(|information_schema|;\s*drop\s+table|--\s*$|\/\*!)/i',
+        'Script injection (XSS)' => '/(<\s*script\b|javascript\s*:|\bon(error|load|mouseover|click)\s*=|<\s*iframe\b|<\s*svg\b[^>]*on)/i',
+        'Path traversal' => '/(\.\.[\/\\\\]){2,}|\/etc\/passwd|c:\\\\windows/i',
+    ];
+    $values = [];
+    array_walk_recursive($_GET, function ($v) use (&$values) { $values[] = (string)$v; });
+    array_walk_recursive($_POST, function ($v, $k) use (&$values) {
+        if (stripos((string)$k, 'password') === false && $k !== 'csrf_token') { $values[] = (string)$v; }
+    });
+    foreach ($values as $value) {
+        foreach ($patterns as $name => $pattern) {
+            if (preg_match($pattern, $value)) {
+                return $name . ': ' . mb_substr($value, 0, 200);
+            }
+        }
+    }
+    return '';
+}
+
+// Too many wrong passwords? Returns minutes to wait (0 = allowed)
+// Rule: 5 failures from the same IP, or 10 for the same username, in 15 minutes
+function login_blocked_minutes(PDO $pdo, string $username): int
+{
+    $since = date('Y-m-d H:i:s', time() - 15 * 60);
+    $byIp = db_row($pdo, "SELECT COUNT(*) AS n, MAX(created_at) AS last FROM security_log
+                          WHERE event = 'login_failed' AND ip = ? AND created_at >= ?", [client_ip(), $since]);
+    $byUser = db_row($pdo, "SELECT COUNT(*) AS n, MAX(created_at) AS last FROM security_log
+                            WHERE event = 'login_failed' AND username = ? AND created_at >= ?", [$username, $since]);
+    $last = null;
+    if ((int)$byIp['n'] >= 5) {
+        $last = $byIp['last'];
+    }
+    if ((int)$byUser['n'] >= 10 && (!$last || $byUser['last'] > $last)) {
+        $last = $byUser['last'];
+    }
+    if (!$last) {
+        return 0;
+    }
+    return max(1, (int)ceil((strtotime($last) + 15 * 60 - time()) / 60));
 }

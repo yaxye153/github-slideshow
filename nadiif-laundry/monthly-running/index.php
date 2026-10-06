@@ -68,10 +68,10 @@ require __DIR__ . '/../includes/header.php';
                     <td class="money"><?= money($r['amount']) ?></td>
                     <td class="actions text-end">
                         <a class="btn btn-sm btn-outline-secondary" href="form.php?id=<?= $r['id'] ?>" title="Edit"><i class="bi bi-pencil"></i></a>
-                        <form method="post" action="delete.php" class="d-inline" data-confirm="Delete this cost? It will also be removed from expenses.">
+                        <?php if (is_admin()): /* only the admin can delete */ ?><form method="post" action="delete.php" class="d-inline" data-confirm="Delete this cost? It will also be removed from expenses.">
                             <?= csrf_field() ?><input type="hidden" name="id" value="<?= $r['id'] ?>">
                             <button class="btn btn-sm btn-outline-danger" type="submit" title="Delete"><i class="bi bi-trash"></i></button>
-                        </form>
+                        </form><?php endif; ?>
                     </td>
                 </tr>
             <?php endforeach; ?>

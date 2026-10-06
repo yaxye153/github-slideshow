@@ -161,7 +161,7 @@ require __DIR__ . '/../includes/header.php';
                     <button class="btn btn-outline-secondary btn-sm" type="submit" title="Save shelf"><i class="bi bi-check-lg"></i></button>
                 </form>
                 <span class="ms-auto small">Balance: <b class="<?= $o['balance'] > 0 ? 'text-loss' : 'text-profit' ?>"><?= money($o['balance']) ?></b></span>
-                <?php if ($o['balance'] > 0): ?><a class="btn btn-outline-success btn-sm" href="../payments/add.php?order_id=<?= $o['id'] ?>"><i class="bi bi-cash"></i> Pay</a><?php endif; ?>
+                <?php if ($o['balance'] > 0 && can('payments')): ?><a class="btn btn-outline-success btn-sm" href="../payments/add.php?order_id=<?= $o['id'] ?>"><i class="bi bi-cash"></i> Pay</a><?php endif; ?>
                 <a class="btn btn-outline-dark btn-sm" href="../receipt/print.php?id=<?= $o['id'] ?>" target="_blank"><i class="bi bi-printer"></i></a>
             </div>
         </div>

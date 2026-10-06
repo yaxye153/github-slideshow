@@ -46,6 +46,9 @@ To reinstall on purpose, delete `config/installed.lock`. Your existing data is *
 | **Profit & Loss** | Daily, weekly, monthly, yearly or custom dates: Gross Income − Expenses = Net **PROFIT** or **LOSS** |
 | **Reports** | Daily, monthly and yearly summary reports, plus 13 detailed reports. Each one has a date filter, search, Print / PDF and CSV export |
 | **Backup & Restore** | Create, download, delete and restore backups |
+| **Users** (admin) | Add as many users as you need. For each one choose **Staff** (only the sections you tick: Customers, Orders, Payments, Income, Expenses, Salaries, Delivery, Running costs, Reports, money totals on the Dashboard) or **Administrator** (everything). Switch users off or remove them. A user who is switched off is logged out immediately |
+| **Security & Footprints** (admin) | **Security Report:** hacking attempts, failed and blocked logins, forbidden pages, delete attempts, dangerous backup files, suspicious IP addresses, and **visits** (how many times the system was opened, by which user, which pages, per day). **Footprints:** every save, edit, payment, delete, login and logout, with user, time, IP and result. Both can be printed and exported as CSV |
+| **My Account** | Every user can change their own password |
 | **Settings** | Business name, phone, address, currency, time zone, receipt footer, **theme** (Blue, Green or Dark), admin username and password, service types, **Price List**, and **Service Speed and Customer Levels** |
 
 ### Price list, service speed and customer levels
@@ -206,6 +209,9 @@ nadiif-laundry/
 ├── reports/               index, report (13 reports), daily, monthly, yearly, profit_loss
 ├── backup/                index, create, download, delete, restore, email (Gmail settings), auto (daily trigger),
 │                          cron.php + daily-email-backup.bat (Task Scheduler); files/ = backups (web access blocked)
+├── users/                 index, form (add/edit + permissions), delete (admin only)
+├── security/              index (Security Report + visits), activity (Footprints) (admin only)
+├── account.php            My Account (change own password)
 ├── settings/              index (business, theme, speeds, levels, admin account), services, prices (price list)
 ├── receipt/print.php      printable receipt (80mm / A4 / mobile)
 ├── includes/              init.php, functions.php, header.php, navbar.php, footer.php
@@ -219,6 +225,30 @@ Each page follows the same simple pattern:
 ---
 
 ## 6. Security
+
+**Users and permissions**
+- Only the **administrator** can delete anything. Staff never see Delete buttons, and if they try anyway they are stopped and the attempt is recorded.
+- Only the administrator can open Users, Security & Footprints, Settings and Backup & Restore.
+- The system never lets you lock yourself out: you can't switch off or remove your own account, or the last active administrator.
+- Permissions are checked again on every page, so changes take effect immediately.
+
+**What is recorded**
+- **Footprints:** every form that is sent, with who, what, when, IP and result (success, failed or error). Passwords are never written.
+- **Security events:**
+  - successful, failed and blocked logins;
+  - forbidden pages and delete attempts;
+  - forms sent twice or from another website;
+  - suspicious input (SQL injection, script injection/XSS, path traversal);
+  - dangerous backup files and requests for forbidden files;
+  - added, changed and removed users, password changes, restores.
+- **Brute-force protection:** after 5 wrong passwords from one IP address, or 10 for one username, within 15 minutes, login is blocked for 15 minutes, even with the right password.
+- The admin's dashboard shows a red alert when there were dangerous events or 5 or more failed logins in the last 24 hours.
+
+**Honest limits**
+- Detection of suspicious input records attempts; it is not what protects the system. The protection is prepared statements, output escaping, CSRF tokens and permission checks.
+- The IP address is the one Apache sees. Behind a router, all local PCs share the router's view of the network.
+- Restoring a backup brings back the logs that were inside that backup, so newer log lines are replaced. The restore itself is always written again afterwards, and the old logs stay in the automatic `pre_restore` backup.
+
 
 - PDO with **prepared statements** everywhere (`ATTR_EMULATE_PREPARES = false`).
 - `htmlspecialchars()` on every value shown on a page (the `e()` helper).
@@ -261,7 +291,13 @@ Test these after installing:
 13. **Backup:** create and download a backup. Change some data. Upload the backup → warning → confirm → data is back. A `pre_restore` backup appears in the history. Uploading a `.txt` file or an unrelated `.sql` file is refused.
 14. **New features:** set Express +50% and Gold 10%. Add a Gold customer and enter prices in the Price List. In New Order, the prices fill in and the total = (subtotal +50%) −10%. Add a shelf number. In Order Tracking, pick the customer and check the shelf and current step, and that **Move to next step** works. Switch between the 3 themes.
 15. **Email backup:** create an App Password, save the settings, click **Send test now** and check the inbox. Enter a wrong password → you get a clear error message and a red warning on the dashboard.
-16. **Updating an existing installation:** copy the new files over the old folder and keep `config/database.php` and `config/installed.lock`. On the next page load, the new columns and tables are added automatically. No data is deleted. Make a backup first anyway.
-17. **Responsive:** use the browser's device mode at phone (375px), tablet (768px) and desktop widths. The menu becomes a hamburger. Tables scroll inside their box, and the page itself does not scroll sideways.
+16. **Users and security:** add a Staff user with only Customers + Orders. Log in as that user and check:
+    - no money totals and no Settings, Users or Backup pages;
+    - no Delete buttons;
+    - payments can't be taken.
 
-The developer ran these checks automatically on PHP 8.3 and MariaDB 10.11 (the database XAMPP uses): 204 server-side checks (including upgrading a database from the first version, restoring a backup, and sending the email backup to a test mail server that, like Gmail, requires STARTTLS encryption and a password login) and 31 browser checks (automatic prices, totals, all 3 themes on phone size). All passed.
+    As admin, check that the Security Report and Footprints show what the staff user did. Type `1' OR '1'='1` into a search box → it appears as a hacking attempt. Enter 5 wrong passwords → login is blocked for 15 minutes.
+17. **Updating an existing installation:** copy the new files over the old folder and keep `config/database.php` and `config/installed.lock`. On the next page load, the new columns and tables are added automatically. No data is deleted. Make a backup first anyway.
+18. **Responsive:** use the browser's device mode at phone (375px), tablet (768px) and desktop widths. The menu becomes a hamburger. Tables scroll inside their box, and the page itself does not scroll sideways.
+
+The developer ran these checks automatically on PHP 8.3 and MariaDB 10.11 (the database XAMPP uses): 256 server-side checks (including users, permissions, brute-force blocking, attack logging, upgrading a database from the first version, restoring a backup, and sending the email backup to a test mail server that, like Gmail, requires STARTTLS encryption and a password login) and 31 browser checks (automatic prices, totals, all 3 themes on phone size). All passed.

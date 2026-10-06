@@ -45,6 +45,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $check = check_restore_sql((string)file_get_contents($f['tmp_name']));
         if ($check['error'] !== '') {
+            log_security($pdo, 'restore_rejected', strpos($check['error'], 'not allowed') !== false ? 'danger' : 'warning',
+                'File ' . basename($f['name']) . ': ' . $check['error']);
             flash('danger', 'Backup not accepted: ' . $check['error']);
             redirect('backup/index.php');
         }
@@ -126,6 +128,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         clear_pending_restore();
+
+        // The restored database has the OLD logs: write down who restored it, so this is never lost
+        log_security($pdo, 'restore', 'warning', 'Database restored from ' . $pending['label'] . '. Old data saved as ' . $safetyFile);
+        log_activity($pdo, 'Backup: restore', 'success', 'Database restored from ' . $pending['label'] . ' (old data saved as ' . $safetyFile . ')');
 
         // The users table may have changed, so log in again
         $_SESSION = [];
