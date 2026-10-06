@@ -1,0 +1,342 @@
+# NADIIF LAUNDRY — Laundry Management & Business Accounting System
+
+A simple laundry management and accounting system built with plain **PHP 8 + MySQL (PDO) + Bootstrap 5**.
+It doesn't use a framework or Node.js, and it doesn't need internet: Bootstrap and its icons are included in `assets/vendor/`.
+
+---
+
+## 1. Installation guide (XAMPP)
+
+1. Install **XAMPP** (PHP 8.0 or newer).
+2. Open the XAMPP Control Panel and start **Apache** and **MySQL**.
+3. Copy the `nadiif-laundry` folder to `C:\xampp\htdocs\`.
+4. Open **http://localhost/nadiif-laundry/** in your browser.
+5. The installer opens on its own:
+   - **Step 1 – System Check:** PHP, MySQL, PDO, extensions and folder permissions.
+   - **Step 2 – Database:** the default XAMPP values are already filled in (host `localhost`, database `nadiif_laundry`, user `root`, empty password). The database is created for you.
+   - **Step 3 – Admin Account:** the default is `admin` / `admin`. You can change it here.
+   - **Steps 4 and 5:** clicking **Install Now** creates all tables and the admin account. The password is stored with `password_hash()`.
+   - **Step 6:** *NADIIF LAUNDRY HAS BEEN INSTALLED SUCCESSFULLY* → **GO TO LOGIN**.
+6. Log in with **admin / admin**. Then go to **Settings → Admin Account** and change the password. The dashboard shows a reminder until you do.
+
+You don't need to create any tables by hand.
+
+**Installation lock:** when installation finishes, the installer writes `config/installed.lock`. After that, opening `/install/` shows *"System has already been installed."* and sends you to the login page.
+To reinstall on purpose, delete `config/installed.lock`. Your existing data is **kept**: tables are only created if they are missing, and the admin password is reset to the one you enter.
+
+> Run the installer straight after copying the files. Until it finishes, anyone who can reach the computer can open it.
+
+---
+
+## 2. User guide
+
+| Menu | What it is for |
+|---|---|
+| **Dashboard** | Shows only what needs action: **New Orders** (with a *Start washing* button) and **Ready Orders** (*Tell customer* on WhatsApp, *Send out*, *Picked up / Delivered*). It also shows counts (new, in work, ready, on the way, late) and alarms for security, email backup and stock. Money totals are in Profit & Loss and Reports |
+| **Order Tracking (two kinds)** | **1. Work:** Received → Washing → Drying → Ironing → Ready. **2. Handover:** Ready → Out for Delivery → Delivered (delivery orders), or Ready → Picked up (pickup orders), with the name of the person who received it. Every step is saved with **who and when** (*Order Trace* on the order page). **WhatsApp / SMS** buttons open the message "your order is ready" already written; staff only press Send |
+| **Order Tracking (details)** | Pick a customer, or search by phone, name, order number or shelf. You see how many of their orders are in the shop, the **shelf number** of each one, and where it is now: Received → Washing → Drying → Ironing → Ready → (Out for Delivery) → Delivered. **Move to next step** and the shelf number can be changed with one tap. Gold and Silver orders come first, and **OVERDUE** orders are marked in red |
+| **Stock** | Detergent, soap, starch and other supplies. **Buy Stock:** quantity, total cost, vendor and **expiry date** for each purchase; the cost goes into Expenses automatically. **Use Stock:** taken from the purchase that expires first. **Alarms:** low stock, expired, expiring within 30 days. They appear as a red number in the menu, on the dashboard, and as a computer pop-up if allowed. Also: **Vendors**, purchase history, usage history |
+| **Company Assets** | Shelves, computers, printers, machines, vehicles, furniture: code, location, serial number, purchase date and cost, condition. Optionally the cost is recorded as an expense. Shelves you add appear as choices for the order's shelf number, and each shelf shows how many orders are on it |
+| **Customers** | Add, edit, view, search (name, phone, customer ID or code) and delete customers. *View* shows the customer's history: total orders, spent, paid, outstanding balance and every order |
+| **Laundry Orders** | **New Order** → choose a customer, add items (Item × Qty × Service × Price), and optionally enter the amount paid now. Totals update as you type. Search by order number, customer name, phone, date and status. Change the status from the order page. Print the receipt |
+| **Payments** | Record payments for orders. A payment can't be more than the balance. Each payment goes into Income automatically |
+| **Income** | All income: order payments, delivery income and "Other Income". Shows today, this week, this month, this year and all-time totals |
+| **Expenses** | All expenses, including the ones created automatically. Use **Add Expense** only for things that are *not* salaries, deliveries or running costs |
+| **Salaries** | Add employees, then **Pay Salary**. Each salary payment is added to Expenses automatically. You get a warning if you pay the same person twice for the same period |
+| **Delivery** | Record deliveries: cost, income and profit. The cost goes to Expenses when "Record cost as business expense" is ticked. The income goes to Income only when its status is **Paid** |
+| **Daily Running** | Everyday costs (tea, fuel, small repairs…) with a total for each day. They are added to Expenses automatically |
+| **Monthly Running** | Recurring costs (rent, internet, security…) by month and year. They are added to Expenses on the **payment date** |
+| **Profit & Loss** | Daily, weekly, monthly, yearly or custom dates: Gross Income − Expenses = Net **PROFIT** or **LOSS** |
+| **Reports** | Daily, monthly and yearly summary reports, plus 13 detailed reports. Each one has a date filter, search, Print / PDF and CSV export |
+| **Backup & Restore** | Create, download, delete and restore backups |
+| **Users** (admin) | Add as many users as you need. For each one choose **Staff** (only the sections you tick: Customers, Orders, Payments, Income, Expenses, Salaries, Delivery, Running costs, Stock, Company Assets, Reports) or **Administrator** (everything). Switch users off or remove them. A user who is switched off is logged out immediately |
+| **Security Report**, **Footprints**, **System Health** (admin, separate menu items) | **Security Report:** passwords tried in failed logins, hacking attempts, failed and blocked logins, forbidden pages, delete attempts, dangerous backup files, suspicious IP addresses, and **visits** (how many times the system was opened, by which user, which pages, per day). **Footprints:** every save, edit, payment, delete, login and logout, with user, time, IP and result. Both can be printed and exported as CSV |
+| **My Account** | Every user can change their own password |
+| **Settings** | Business name, phone, address, currency, time zone, receipt footer, **theme** (Blue, Green or Dark), admin username and password, service types, **Price List**, and **Packages (hours), Customer Levels and the WhatsApp/SMS message** |
+
+### Price list, packages and customer levels
+
+- **Packages:** every order is **Normal** (default 48 hours = 2 days), **Silver** (12 hours) or **Gold** (4 hours). You can change the hours in Settings. The *Ready By* time is calculated from them.
+- **Price List** (Settings → Price List) has **one tab per package**. Example: Suit / Dry Clean = Normal $8, Silver $12, Gold $20. In New Order, the price of the chosen package fills in automatically, and changing the package changes the prices. An empty Silver/Gold price uses the Normal price. You can still type a different price for one order; the system then keeps your price.
+- **Customer levels:** **Standard**, **Premium** and **VIP**, each with an automatic discount % (default **0%**; set your own in Settings).
+- **Order total** = items (at the package price) − level discount. Example: 4 shirts × $2.50 + suit $12 = $22, VIP −10% = **$19.80**.
+- The discount % is saved inside each order, so changing Settings later **never changes old orders**.
+- Older versions called the packages Express/VIP and the customer levels Silver/Gold. When you update, the names change automatically (Express → Silver, VIP → Gold; Silver customer → Premium, Gold customer → VIP). Your values are kept.
+
+### Common tasks
+
+- **New order with payment:** Laundry Orders → New Order → add items → type *Amount Paid Now* → Save Order → Receipt.
+- **Customer pays the rest later:** open the order → **Add Payment**.
+- **Refund or payment entered by mistake:** open the order and delete the payment. It is removed from Income as well.
+- **Cancelled order:** set its status to *Cancelled*. Cancelled orders don't count in sales or outstanding balance. Money already paid stays in Income until you delete that payment.
+- **Printing the receipt:** the order page → **Receipt**. Choose *Small receipt (80mm)* for a receipt printer or phone, or *A4 page*, then click **Print**.
+- **PDF:** click **Print / PDF** on any report and choose **Save as PDF** in the print window.
+- **Excel:** click **CSV / Excel**. The `.csv` file opens directly in Excel.
+
+### Backup & restore
+
+- **BACKUP DATABASE** saves `nadiif_laundry_backup_YYYY-MM-DD_HH-MM-SS.sql` in `backup/files/`. It contains the structure and data of every table. **Download it and keep a copy somewhere other than this computer** (USB stick, cloud). A backup that only lives on the same hard disk is lost if that disk fails.
+- **UPLOAD BACKUP** works like this:
+  1. The file is checked: it must be `.sql`, 64 MB or smaller, and text.
+  2. The system confirms it is a NADIIF LAUNDRY backup: it must contain the `users`, `settings`, `customers` and `orders` tables, and only normal backup statements. Statements such as `GRANT`, `DROP DATABASE` or file access are refused.
+  3. A warning page appears.
+  4. You tick a box and confirm.
+  5. A safety backup of the current data is saved automatically as `nadiif_laundry_pre_restore_….sql`. Then the backup is restored. If the restore fails part-way, the system loads the safety backup again on its own.
+  6. You see a success message and log in again, using the users stored in the backup.
+- You can also restore any file from **Backup History**.
+### Daily email backup (Gmail)
+
+**Backup & Restore → Email Backup Settings** can send a backup to Gmail every day.
+
+1. **Create a Gmail App Password.** Gmail does not accept your normal password here.
+   - Open myaccount.google.com → **Security** → turn on **2-Step Verification**.
+   - Search for **App passwords**, create one named "Nadiif Laundry" and copy the 16 letters.
+2. Enter the Gmail address and the App Password. Optionally enter another address in "Send backup to", then choose a time (for example 20:00). Tick **Send a backup to Gmail every day** and click **Save**.
+3. Click **Send test now**. The email should arrive within a minute. The attachment is `nadiif_laundry_auto_….sql.gz`.
+
+**How the daily sending works:**
+
+- After the chosen time, the first page anyone opens in the system sends today's backup in the background. It is sent at most once per day, and the page does not wait for it.
+- If the computer is off, or nobody opens the system that day, **nothing is sent that day**. To send even when nobody uses the system, use Windows Task Scheduler:
+  - Open Task Scheduler and choose **Create Basic Task** → *Daily* → pick a time when the PC is on.
+  - Choose *Start a program* and select `C:\xampp\htdocs\nadiif-laundry\backup\daily-email-backup.bat`.
+  - MySQL must be running at that time. In the XAMPP Control Panel you can make MySQL start automatically as a Windows service.
+- If sending fails (no internet, wrong password), the system tries again after 1 hour. The dashboard shows a red warning until it works again.
+- The last 14 automatic backups are also kept on the computer.
+- **To restore from the email:** open the `.gz` file with 7-Zip or WinRAR to get the `.sql` file, then use **UPLOAD BACKUP**.
+- The App Password is stored in `config/mail.php`, **not in the database**, so it never ends up inside a backup or an email. Keep that file private.
+- The email contains **all business data**. Send it only to an account you control, with 2-Step Verification turned on.
+- Gmail's attachment limit is 25 MB. The backup is compressed, which is enough for many years of a small shop's data. If it ever gets too big, the system tells you.
+
+- XAMPP's default upload limit is about 40 MB. For bigger backups, raise `upload_max_filesize` and `post_max_size` in `php.ini`.
+
+---
+
+## 3. How the money is calculated (important)
+
+There is **one income table** and **one expense table**. Every money figure in the dashboard, Profit & Loss and the reports is a `SUM()` over these real records. Nothing is estimated or invented.
+
+| Recorded in | Copied automatically to | Link |
+|---|---|---|
+| Payments (order payment) | `income` (type *Laundry Order*) | `source='order_payment'`, `source_id = payments.id` |
+| Delivery income (when Paid) | `income` (type *Delivery Income*) | `source='delivery'`, `source_id = deliveries.id` |
+| Salary payment | `expenses` (category *Salary*) | `source='salary'` |
+| Delivery cost (when ticked) | `expenses` (category *Delivery*) | `source='delivery'` |
+| Daily running cost | `expenses` | `source='daily_running'` |
+| Monthly running cost | `expenses` | `source='monthly_running'` |
+
+**How double counting is prevented:**
+
+- A **UNIQUE key on `(source, source_id)`** means a record can be copied only once. Editing it updates the same copy; deleting it deletes the copy.
+- Automatic rows can't be edited or deleted from the Income or Expenses pages. You change them in their own module.
+- The manual Income form does not offer "Laundry Order". The manual Expense form does not offer "Salary" or "Delivery".
+- Each form carries a one-time token, and the Save button is disabled after the first click. Clicking **Save** twice never creates two records.
+- Orders, payments, salaries, deliveries and running costs are saved inside a **database transaction**. If any part fails, nothing is saved.
+- A payment locks its order row (`SELECT … FOR UPDATE`), so two payments at the same moment can't overpay an order.
+
+**Accounting rules to know:**
+
+- Income is counted on the **date money is received**. An unpaid order balance is *not* income until it is paid. It appears under *Outstanding Balance*.
+- Monthly running costs count on their **payment date**, not the month they are for.
+- If you add a delivery fee as an item in the order **and** as Delivery Income, it is counted twice. Use one or the other.
+- If you type the same electricity bill in Daily Running, Monthly Running *and* Expenses, it is counted three times. Each cost belongs in one place.
+
+---
+
+## 4. Database explanation
+
+Database name: `nadiif_laundry`. The full structure is in `database/nadiif_laundry.sql` and has comments. All tables use InnoDB and utf8mb4.
+
+| Table | Purpose | Main relationships |
+|---|---|---|
+| `users` | Login accounts (`password_hash` only) | — |
+| `settings` | Key/value business settings | — |
+| `service_types` | Wash, Wash & Iron, Iron Only, Dry Clean, Special Cleaning… | — |
+| `customers` | Customers (`customer_code` C0001…, `tier` Normal/Silver/Gold) | — |
+| `price_list` | Normal price of each item + service (filled into new orders) | UNIQUE (item, service) |
+| `orders` | Orders (`order_number` ORD-000001…), `shelf_number`, `service_speed`, `ready_at`, subtotal, speed charge, discount, total, paid, balance and payment status | `customer_id` → customers (RESTRICT) |
+| `order_items` | Items in an order: qty × price = total | `order_id` → orders (CASCADE) |
+| `payments` | Customer payments | `order_id` → orders (RESTRICT) |
+| `income` | **All** income | `source` + `source_id` (UNIQUE) |
+| `expenses` | **All** expenses | `source` + `source_id` (UNIQUE) |
+| `employees` | Staff | — |
+| `salary_payments` | Salary payments | `employee_id` → employees (RESTRICT) |
+| `deliveries` | Delivery cost and income | `order_id` → orders, `customer_id` → customers (SET NULL) |
+| `order_history` | Order trace: every step with who and when | `order_id` → orders (CASCADE) |
+| `assets` | Company assets (shelves, computers, machines…) | — |
+| `vendors` | Shops where stock is bought | — |
+| `stock_items` | Detergent, soap, starch… with low-stock level | — |
+| `stock_batches` | Each stock purchase: quantity, quantity left, cost, expiry date (cost copied to `expenses`) | `item_id` → stock_items, `vendor_id` → vendors |
+| `stock_moves` | Stock used / thrown away | `batch_id` → stock_batches |
+| `users`, `activity_log`, `security_log`, `page_visits` | Users with permissions, footprints, security events, visits | — |
+| `daily_running_costs` | Everyday costs | — |
+| `monthly_running_costs` | Monthly costs (month, year, payment date) | — |
+
+The order's `total_amount`, `amount_paid`, `balance` and `payment_status` are recalculated from `order_items` and `payments` every time something changes (`recalc_order()` in `includes/functions.php`):
+
+```
+Item Total     = Quantity × Price
+Subtotal       = sum of item totals
+Speed charge   = Subtotal × speed %            (Express / VIP)
+Discount       = (Subtotal + Speed charge) × customer level %
+Order Total    = Subtotal + Speed charge − Discount
+Balance        = Total Amount − Amount Paid
+Payment Status = Paid (paid ≥ total) / Partial (some paid) / Unpaid
+Net Profit     = Total Income − Total Expenses   (negative = LOSS)
+Delivery Profit = Delivery Income − Delivery Cost
+```
+
+Indexes are on every date, status, name and phone column that is used for searching and reports.
+
+---
+
+## 5. Folder structure
+
+```
+nadiif-laundry/
+├── index.php              start page: installer → login → dashboard
+├── login.php  logout.php  dashboard.php
+├── install/               installation wizard
+│   ├── index.php          step 1: system check
+│   ├── database.php       step 2: database settings, creates the database
+│   ├── install.php        steps 3-6: admin account, create tables, admin, done
+│   └── layout.php         installer page layout + installation lock
+├── config/database.php    database settings (written by the installer)
+├── auth/
+│   ├── auth_check.php     put at the top of every protected page
+│   └── login_check.php    checks username + password
+├── customers/             index (list/search), form (add/edit), view (history), delete
+├── orders/                index (list/search), form (new/edit with items), view, status, delete
+├── tracking/              index (order tracking: shelf + washing/drying/ironing steps)
+├── stock/                 index (alarms), item_form, purchase, purchases, use, usage, vendors
+├── assets/                index, form, delete (company assets)
+├── payments/              index, add, delete
+├── income/                index, form, delete
+├── expenses/              index, form, delete
+├── salaries/              index (payments), pay, delete, employees, employee_form, employee_delete
+├── delivery/              index, form, delete
+├── daily-running/         index, form, delete
+├── monthly-running/       index, form, delete
+├── reports/               index, report (13 reports), daily, monthly, yearly, profit_loss
+├── backup/                index, create, download, delete, restore, email (Gmail settings), auto (daily trigger),
+│                          cron.php + daily-email-backup.bat (Task Scheduler); files/ = backups (web access blocked)
+├── users/                 index, form (add/edit + permissions), delete (admin only)
+├── security/              index (Security Report, tried passwords, visits), activity (Footprints), health (System Health) (admin only)
+├── account.php            My Account (change own password)
+├── settings/              index (business, theme, speeds, levels, admin account), services, prices (price list)
+├── receipt/print.php      printable receipt (80mm / A4 / mobile)
+├── includes/              init.php, functions.php, header.php, navbar.php, footer.php
+├── assets/                css/style.css, js/script.js, vendor/ (Bootstrap 5 + icons, offline)
+└── database/nadiif_laundry.sql   table structure used by the installer
+```
+
+Each page follows the same simple pattern:
+`require auth_check.php` → read and validate the form → save with prepared statements → `flash()` a message → `redirect()`.
+
+---
+
+## 6. Security
+
+**Users and permissions**
+- Only the **administrator** can delete anything. Staff never see Delete buttons, and if they try anyway they are stopped and the attempt is recorded.
+- Only the administrator can open Users, Security & Footprints, Settings and Backup & Restore.
+- The system never lets you lock yourself out: you can't switch off or remove your own account, or the last active administrator.
+- Permissions are checked again on every page, so changes take effect immediately.
+
+**Passwords tried (Security Report):** failed and blocked logins show the password that was tried.
+- By default it is **masked**, e.g. `ad••••56 (8)`: you see the length and the first/last letters.
+- The admin can switch to **full**. Be aware: when your own staff mistype, their real password (often the same one they use for Gmail or EVC Plus) is then stored in plain text.
+- Successful logins never store a password.
+
+**What is recorded**
+- **Footprints:** every form that is sent, with who, what, when, IP and result (success, failed or error). Passwords are never written.
+- **Security events:**
+  - successful, failed and blocked logins;
+  - forbidden pages and delete attempts;
+  - forms sent twice or from another website;
+  - suspicious input (SQL injection, script injection/XSS, path traversal);
+  - dangerous backup files and requests for forbidden files;
+  - added, changed and removed users, password changes, restores.
+- **Brute-force protection:** after 5 wrong passwords from one IP address, or 10 for one username, within 15 minutes, login is blocked for 15 minutes, even with the right password.
+- The admin's dashboard shows a red alert when there were dangerous events or 5 or more failed logins in the last 24 hours.
+
+**Honest limits**
+- Detection of suspicious input records attempts; it is not what protects the system. The protection is prepared statements, output escaping, CSRF tokens and permission checks.
+- The IP address is the one Apache sees. Behind a router, all local PCs share the router's view of the network.
+- Restoring a backup brings back the logs that were inside that backup, so newer log lines are replaced. The restore itself is always written again afterwards, and the old logs stay in the automatic `pre_restore` backup.
+
+
+- PDO with **prepared statements** everywhere (`ATTR_EMULATE_PREPARES = false`).
+- `htmlspecialchars()` on every value shown on a page (the `e()` helper).
+- `password_hash()` / `password_verify()`. The session ID is regenerated on login, logout and restore. Session cookies are `HttpOnly` and `SameSite=Lax`.
+- One-time **CSRF tokens** on every form. Every change uses POST.
+- Upload checks: `.sql` only, size limit, content check against a whitelist of statements, stored under a random name in a folder the browser can't open (`.htaccess`).
+- Backup download and delete accept only file names that match the backup pattern, so other system files can't be reached.
+- PHP errors are hidden from users and written to the PHP error log. Users see a friendly message.
+- The email backup connects to Gmail with STARTTLS and always checks Gmail's security certificate. The App Password lives only in `config/mail.php`.
+- `config/`, `includes/`, `database/` and `backup/files/` are blocked from the browser with `.htaccess`. This needs Apache `AllowOverride`, which XAMPP enables by default.
+
+---
+
+## 7. Crash protection
+
+- **Transactions:** every important save (orders, payments, salaries, stock, restore) either completes fully or saves nothing.
+- **Automatic daily local backup:** the first page opened each day starts it in the background. The newest 14 are kept. The Gmail backup is separate and optional.
+- **No broken pages:** PHP errors, warnings and fatal errors show a friendly message, and the details go to the PHP error log.
+- **System Health** (admin) checks:
+  - free disk space (a full disk is the most common reason MySQL crashes);
+  - damaged database tables (*Check database tables*, useful after a power cut);
+  - the age of the last backup and the email backup status;
+  - PHP limits and recent errors.
+- **Advice:** use a UPS for the computer, and stop MySQL in the XAMPP Control Panel before switching the PC off. Power cuts while MySQL is writing are the main cause of damaged tables. If a table is damaged, restore the newest backup.
+
+## 8. Message to the customer (WhatsApp / SMS)
+
+When an order is **Ready** (or Out for Delivery), the **WhatsApp** and **SMS** buttons open WhatsApp, or the phone's SMS app, with the message already written. The message text is set in Settings and can include {customer} {order} {balance} {total} {shelf} {business} {phone}. Phone numbers are changed to international format automatically: Somalia 252, so 0615… becomes +252615…. The time is saved on the order ("Customer told").
+
+**Honest limit:** sending fully automatically, with nobody pressing Send, needs a paid SMS gateway account (for example from your mobile operator). If you get one, its details can be added later. WhatsApp itself does not allow free automatic sending from a normal number.
+
+## 9. Limitations
+
+- There is **one admin role**. Staff accounts with limited permissions are not included.
+- "Excel export" is **CSV**, which Excel opens directly. "PDF export" uses the browser's **Print → Save as PDF**. No PDF or Excel library is bundled.
+- MySQL can't undo table changes (`DROP` / `CREATE`) inside a transaction. Restore safety therefore comes from the automatic pre-restore backup and automatic re-import if the restore fails, not from a rollback.
+- Restore checks each file against a list of allowed statements. A phpMyAdmin or `mysqldump` export of this database usually passes. A dump that contains triggers or stored procedures is refused.
+- The system is designed for one shop on a local computer or network. To put it on the internet you need HTTPS and stronger passwords.
+
+---
+
+## 10. Testing instructions
+
+Test these after installing:
+
+1. **Installation:** fresh install → success page → `/install/` now says *already installed*.
+2. **Authentication:** open `dashboard.php` while logged out → sent to login. Wrong password → *Invalid username or password.* Log in with `admin` / `admin` → dashboard with the change-password notice. Logout.
+3. **Customers:** add, edit, search by name, phone and ID, view. Delete a customer with no orders: it works. Delete a customer with orders: it is refused.
+4. **Orders:** create an order with 2+ items. The total updates as you type. Check *Quantity × Price* and the order total. Entering more paid than the total is refused. Double-click **Save Order** → only one order is created. Edit the items. Change the status. Search by number, name, phone, date and status.
+5. **Payments:** add a payment. The balance and status change Unpaid → Partial → Paid. A payment bigger than the balance is refused. Delete a payment → the balance goes back up and the income disappears.
+6. **Income / Expenses:** add manual records and check the today, week, month, year and total cards.
+7. **Salaries:** add an employee and pay a salary → it appears in Expenses once. Edit it → the expense row changes and no second row is added.
+8. **Delivery:** cost 2, income 3, Paid → profit 1. Expenses +2, Income +3.
+9. **Running costs:** add a daily cost (check the per-day total) and a monthly cost.
+10. **Profit & Loss:** check daily, weekly, monthly and yearly. Income − Expenses must equal the Net line, with a PROFIT or LOSS label.
+11. **Reports:** open each report. Try the date filter, search, Print and CSV.
+12. **Receipt:** print in 80mm and A4. Open it on a phone.
+13. **Backup:** create and download a backup. Change some data. Upload the backup → warning → confirm → data is back. A `pre_restore` backup appears in the history. Uploading a `.txt` file or an unrelated `.sql` file is refused.
+14. **New features:** set Express +50% and Gold 10%. Add a Gold customer and enter prices in the Price List. In New Order, the prices fill in and the total = (subtotal +50%) −10%. Add a shelf number. In Order Tracking, pick the customer and check the shelf and current step, and that **Move to next step** works. Switch between the 3 themes.
+15. **Email backup:** create an App Password, save the settings, click **Send test now** and check the inbox. Enter a wrong password → you get a clear error message and a red warning on the dashboard.
+16. **Packages, tracking and stock:**
+    - Set Silver/Gold prices in the Price List, create a Gold order and check the price and the 4-hour ready time.
+    - Move the order through Washing → Drying → Ironing → Ready and press WhatsApp. Then press *Picked up* with a name, and check the Order Trace.
+    - Buy 10 kg detergent with an expiry date and use 12 kg → refused. Use 8 → low-stock alarm.
+    - Add a shelf in Company Assets and check it is offered as the order's shelf.
+17. **Users and security:** add a Staff user with only Customers + Orders. Log in as that user and check:
+    - no money totals and no Settings, Users or Backup pages;
+    - no Delete buttons;
+    - payments can't be taken.
+
+    As admin, check that the Security Report and Footprints show what the staff user did. Type `1' OR '1'='1` into a search box → it appears as a hacking attempt. Enter 5 wrong passwords → login is blocked for 15 minutes.
+18. **Updating an existing installation:** copy the new files over the old folder and keep `config/database.php` and `config/installed.lock`. On the next page load, the new columns and tables are added automatically. No data is deleted. Make a backup first anyway.
+19. **Responsive:** use the browser's device mode at phone (375px), tablet (768px) and desktop widths. The menu becomes a hamburger. Tables scroll inside their box, and the page itself does not scroll sideways.
+
+The developer ran these checks automatically on PHP 8.3 and MariaDB 10.11 (the database XAMPP uses): 281 server-side checks (including packages and prices, order trace, handover, WhatsApp/SMS links, stock with expiry and FEFO usage, assets, tried passwords, daily local backup, upgrading from every older version, users, permissions, brute-force blocking, attack logging, upgrading a database from the first version, restoring a backup, and sending the email backup to a test mail server that, like Gmail, requires STARTTLS encryption and a password login) and 31 browser checks (automatic prices, totals, all 3 themes on phone size). All passed.

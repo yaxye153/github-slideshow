@@ -1,0 +1,9 @@
+# Created by the installer on each computer
+config/installed.lock
+# Backup files contain real business data - never commit them
+backup/files/*.sql
+backup/files/uploads/*.sql
+
+# Gmail App Password - never commit
+config/mail.php
+backup/files/uploads/*.gz

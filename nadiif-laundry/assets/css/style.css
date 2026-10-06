@@ -1,0 +1,130 @@
+/* =====================================================================
+   NADIIF LAUNDRY - main stylesheet
+   Bootstrap 5 does most of the work. These rules add the brand colour,
+   the side menu and print settings.
+   ===================================================================== */
+
+/* ---------- 3 themes (chosen in Settings) ---------- */
+:root, [data-theme="blue"] {
+    --brand: #0d4f8b;
+    --brand-dark: #093a66;
+    --accent: #4fc3f7;
+    --page-bg: #f4f6f9;
+    --head-bg: #eef2f7;
+    --login-bg: linear-gradient(135deg, #0d4f8b, #1c7ed6);
+    --sidebar-width: 240px;
+}
+[data-theme="green"] {
+    --brand: #13795b;
+    --brand-dark: #0b5a43;
+    --accent: #ffd166;
+    --page-bg: #f2f7f4;
+    --head-bg: #e3f1ea;
+    --login-bg: linear-gradient(135deg, #0b5a43, #20a374);
+}
+[data-theme="dark"] {
+    --brand: #1f2633;
+    --brand-dark: #141922;
+    --accent: #38bdf8;
+    --page-bg: #10141b;
+    --head-bg: #252d3a;
+    --login-bg: linear-gradient(135deg, #0b0f15, #243045);
+}
+[data-theme="dark"] .bg-white { background-color: var(--bs-body-bg) !important; }
+[data-theme="dark"] .card { border-color: #2c3544; }
+[data-theme="dark"] .stat-card .stat-label { color: #9aa4b2; }
+[data-theme="dark"] .alert-light { background: #1b2230; color: #dbe2ea; }
+
+body { background: var(--page-bg); }
+.bg-brand { background-color: var(--brand) !important; }
+
+/* ---------- Side menu ---------- */
+.sidebar { width: var(--sidebar-width); }
+.sidebar .nav-link { color: rgba(255, 255, 255, .85); padding: .65rem 1rem; border-radius: 0; }
+.sidebar .nav-link i { width: 1.5rem; display: inline-block; }
+.sidebar .nav-link:hover { background: rgba(255, 255, 255, .1); color: #fff; }
+.sidebar .nav-link.active { background: var(--brand-dark); color: #fff; border-left: 4px solid var(--accent); }
+.sidebar-brand { align-items: center; color: #fff; font-weight: 700; font-size: 1.15rem; padding: 1rem; text-decoration: none; background: var(--brand-dark); }
+.sidebar-brand:hover { color: #fff; }
+.offcanvas-lg.sidebar .offcanvas-header { background: var(--brand-dark); }
+
+@media (min-width: 992px) {
+    .sidebar { position: fixed; top: 0; bottom: 0; left: 0; overflow-y: auto; z-index: 1030; }
+    .main-content { margin-left: var(--sidebar-width); }
+}
+@media (max-width: 991.98px) {
+    .sidebar.offcanvas-lg { background-color: var(--brand) !important; color: #fff; }
+}
+
+/* ---------- Cards on the dashboard ---------- */
+.stat-card { border: 0; border-left: 4px solid var(--brand); }
+.stat-card .stat-icon { font-size: 1.8rem; opacity: .35; }
+.stat-card .stat-value { font-size: 1.35rem; font-weight: 700; }
+.stat-card .stat-label { font-size: .85rem; color: #6c757d; }
+.stat-card.green { border-left-color: #198754; }
+.stat-card.red { border-left-color: #dc3545; }
+.stat-card.orange { border-left-color: #fd7e14; }
+.stat-card.teal { border-left-color: #20c997; }
+.section-title { font-size: 1rem; font-weight: 600; color: #495057; margin: 1.25rem 0 .6rem; text-transform: uppercase; letter-spacing: .03em; }
+
+/* ---------- General ---------- */
+.page-header { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+.page-header h1 { font-size: 1.5rem; margin: 0; }
+.table td, .table th { vertical-align: middle; }
+.table thead th { white-space: nowrap; background: var(--head-bg); }
+.money { text-align: right; white-space: nowrap; }
+.text-profit { color: #198754; }
+.text-loss { color: #dc3545; }
+.btn { min-height: 38px; }
+.actions { white-space: nowrap; }
+
+/* Bigger touch targets on phones */
+@media (max-width: 575.98px) {
+    .btn { padding: .5rem .85rem; }
+    .btn-sm { padding: .4rem .7rem; font-size: .875rem; }
+    .page-header h1 { font-size: 1.25rem; }
+    .stat-card .stat-value { font-size: 1.1rem; }
+}
+
+/* ---------- Login + installer ---------- */
+.login-page { min-height: 100vh; display: flex; align-items: center; background: var(--login-bg); padding: 1rem 0; }
+.login-page h1, .login-page .text-muted { color: #fff !important; }
+.login-box { max-width: 420px; }
+.login-logo { font-size: 3rem; color: #fff; }
+.install-steps .step { padding: .35rem .6rem; border-radius: 1rem; font-size: .8rem; background: #e9ecef; color: #6c757d; }
+.install-steps .step.done { background: #d1e7dd; color: #0f5132; }
+.install-steps .step.current { background: var(--brand); color: #fff; }
+
+/* ---------- Dashboard ---------- */
+.dash-hero { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center;
+    padding: 1.25rem 1.5rem; border-radius: .75rem; color: #fff; background: linear-gradient(135deg, var(--brand-dark), var(--brand)); }
+.dash-hero .btn-light { color: var(--brand-dark); font-weight: 600; }
+.dash-panel .card-header { background: var(--head-bg); border-bottom: 3px solid var(--brand); }
+.dash-panel.ready .card-header { border-bottom-color: #ffc107; }
+.dash-order { padding: .65rem .75rem; border-radius: .5rem; border: 1px solid rgba(0, 0, 0, .08); margin-bottom: .5rem; background: var(--bs-body-bg); }
+.dash-order:hover { border-color: var(--brand); }
+.min-w-0 { min-width: 0; }
+.order-card.border-warning { border-width: 2px; }
+
+/* ---------- Order tracking ---------- */
+.track-steps { display: flex; gap: 4px; flex-wrap: wrap; }
+.track-steps .step { flex: 1 1 0; min-width: 62px; text-align: center; font-size: .72rem; padding: .35rem .2rem; border-radius: .35rem;
+    background: var(--head-bg); color: #6c757d; }
+.track-steps .step.done { background: #d1e7dd; color: #0f5132; }
+.track-steps .step.current { background: var(--brand); color: #fff; font-weight: 700; }
+.track-steps .step i { display: block; font-size: 1rem; }
+.shelf { display: inline-block; font-weight: 700; padding: .15rem .55rem; border: 2px dashed var(--brand); border-radius: .4rem; }
+[data-theme="dark"] .shelf { border-color: var(--accent); }
+.theme-swatch { display: inline-block; width: 1rem; height: 1rem; border-radius: 50%; vertical-align: middle; margin-right: .3rem; }
+
+/* ---------- Printing ---------- */
+@media print {
+    .no-print, .sidebar, .navbar, footer, .btn, form.filter-form { display: none !important; }
+    .main-content { margin-left: 0 !important; }
+    body { background: #fff; }
+    .card { border: 0 !important; box-shadow: none !important; }
+    .table-responsive { overflow: visible !important; }
+    a { text-decoration: none; color: #000; }
+}
+.print-only { display: none; }
+@media print { .print-only { display: block; } }
