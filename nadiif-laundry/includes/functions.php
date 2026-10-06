@@ -97,6 +97,15 @@ function default_settings(): array
         'currency_symbol' => '$',
         'receipt_footer'  => 'Thank you for choosing NADIIF LAUNDRY!',
         'timezone'        => 'Africa/Mogadishu',
+        'theme'           => 'blue',
+        // Service speed: how many hours until ready, and extra charge in %
+        'speed_normal_hours'    => '48', 'speed_normal_percent'  => '0',
+        'speed_express_hours'   => '24', 'speed_express_percent' => '0',
+        'speed_vip_hours'       => '6',  'speed_vip_percent'     => '0',
+        // Customer levels: discount in %
+        'tier_normal_discount'  => '0',
+        'tier_silver_discount'  => '0',
+        'tier_gold_discount'    => '0',
     ];
 }
 
@@ -387,21 +396,189 @@ function payment_status(float $total, float $paid): string
     return $paid >= $total ? 'Paid' : 'Partial';
 }
 
-// Recalculate an order's total, amount paid, balance and payment status
-// from the real order_items and payments rows.
+// Recalculate an order's money from the real order_items and payments rows.
+//   Subtotal     = sum of item totals (Quantity x Price)
+//   Speed charge = Subtotal x speed % (Express / VIP)
+//   Discount     = (Subtotal + Speed charge) x customer level %
+//   Total        = Subtotal + Speed charge - Discount
+//   Balance      = Total - Amount Paid
+// The % values are saved on the order, so changing Settings later
+// never changes the price of old orders.
 function recalc_order(PDO $pdo, int $orderId): void
 {
-    // Calculate order total = sum of all item totals
-    $total = (float)db_value($pdo, 'SELECT COALESCE(SUM(total), 0) FROM order_items WHERE order_id = ?', [$orderId]);
+    $order = db_row($pdo, 'SELECT speed_percent, discount_percent FROM orders WHERE id = ?', [$orderId]);
+    $subtotal = (float)db_value($pdo, 'SELECT COALESCE(SUM(total), 0) FROM order_items WHERE order_id = ?', [$orderId]);
+    $money = order_money($subtotal, (float)$order['speed_percent'], (float)$order['discount_percent']);
+
     // Amount paid = sum of all payments for this order
     $paid = (float)db_value($pdo, 'SELECT COALESCE(SUM(amount), 0) FROM payments WHERE order_id = ?', [$orderId]);
-    // Balance = Total Amount - Amount Paid
-    $balance = round($total - $paid, 2);
+    $balance = round($money['total'] - $paid, 2);
 
-    db_query($pdo, 'UPDATE orders SET total_amount = ?, amount_paid = ?, balance = ?, payment_status = ? WHERE id = ?',
-        [$total, $paid, $balance, payment_status($total, $paid), $orderId]);
+    db_query($pdo, 'UPDATE orders SET subtotal = ?, speed_charge = ?, discount_amount = ?, total_amount = ?, amount_paid = ?, balance = ?,
+                    payment_status = ? WHERE id = ?',
+        [$money['subtotal'], $money['speed_charge'], $money['discount'], $money['total'], $paid, $balance,
+         payment_status($money['total'], $paid), $orderId]);
 }
 
+// Calculate order total from the subtotal, speed % and discount %
+function order_money(float $subtotal, float $speedPercent, float $discountPercent): array
+{
+    $subtotal = round($subtotal, 2);
+    $speedCharge = round($subtotal * $speedPercent / 100, 2);
+    $discount = round(($subtotal + $speedCharge) * $discountPercent / 100, 2);
+    return ['subtotal' => $subtotal, 'speed_charge' => $speedCharge, 'discount' => $discount,
+            'total' => round($subtotal + $speedCharge - $discount, 2)];
+}
+
+
+// ---------------------------------------------------------------------
+// SERVICE SPEED (Normal / Express / VIP) AND CUSTOMER LEVELS
+// ---------------------------------------------------------------------
+
+// ['Normal' => ['hours' => 48, 'percent' => 0], 'Express' => ..., 'VIP' => ...]
+function service_speeds(): array
+{
+    $speeds = [];
+    foreach (['Normal' => 'normal', 'Express' => 'express', 'VIP' => 'vip'] as $name => $key) {
+        $speeds[$name] = [
+            'hours' => max(1, (int)setting('speed_' . $key . '_hours', '48')),
+            'percent' => (float)setting('speed_' . $key . '_percent', '0'),
+        ];
+    }
+    return $speeds;
+}
+
+// ['Normal' => 0, 'Silver' => 5, 'Gold' => 10]  (discount %)
+function customer_tiers(): array
+{
+    return [
+        'Normal' => (float)setting('tier_normal_discount', '0'),
+        'Silver' => (float)setting('tier_silver_discount', '0'),
+        'Gold'   => (float)setting('tier_gold_discount', '0'),
+    ];
+}
+
+function tier_badge(string $tier): string
+{
+    $colors = ['Gold' => 'background:#d4a017;color:#000', 'Silver' => 'background:#adb5bd;color:#000', 'Normal' => 'background:#e9ecef;color:#495057'];
+    $icon = $tier === 'Normal' ? '' : '<i class="bi bi-star-fill"></i> ';
+    return '<span class="badge" style="' . ($colors[$tier] ?? $colors['Normal']) . '">' . $icon . e($tier) . '</span>';
+}
+
+function speed_badge(string $speed): string
+{
+    $colors = ['VIP' => 'danger', 'Express' => 'warning text-dark', 'Normal' => 'light text-dark border'];
+    $icon = $speed === 'Normal' ? '' : '<i class="bi bi-lightning-charge-fill"></i> ';
+    return '<span class="badge bg-' . ($colors[$speed] ?? $colors['Normal']) . '">' . $icon . e($speed) . '</span>';
+}
+
+// Show when an order will be ready: "in 5 h", "OVERDUE 2 h", ...
+function ready_label(array $order): string
+{
+    if (in_array($order['status'], ['Delivered', 'Cancelled'], true)) {
+        return '';
+    }
+    $when = $order['ready_at'] ?? null;
+    if (!$when) {
+        return '';
+    }
+    $diff = strtotime($when) - time();
+    $hours = (int)floor(abs($diff) / 3600);
+    $text = $hours >= 48 ? floor($hours / 24) . ' days' : ($hours > 0 ? $hours . ' h' : floor(abs($diff) / 60) . ' min');
+    if ($diff < 0 && $order['status'] !== 'Ready') {
+        return '<span class="badge bg-danger">OVERDUE ' . $text . '</span>';
+    }
+    return $diff < 0 ? '' : '<span class="badge bg-info text-dark">in ' . $text . '</span>';
+}
+
+// Show date + time, e.g. 06 Oct 2026 14:30
+function show_datetime(?string $value): string
+{
+    $ts = $value ? strtotime($value) : false;
+    return $ts ? date('d M Y H:i', $ts) : '-';
+}
+
+
+// ---------------------------------------------------------------------
+// PRICE LIST
+// ---------------------------------------------------------------------
+
+// All saved prices as ['shirt|wash' => 1.50, ...] (lower case keys)
+function price_list_map(PDO $pdo): array
+{
+    $map = [];
+    foreach (db_all($pdo, 'SELECT item_name, service_type, price FROM price_list') as $r) {
+        $map[mb_strtolower($r['item_name'] . '|' . $r['service_type'])] = (float)$r['price'];
+    }
+    return $map;
+}
+
+
+// ---------------------------------------------------------------------
+// THEMES
+// ---------------------------------------------------------------------
+
+function themes(): array
+{
+    return ['blue' => 'Blue (Classic)', 'green' => 'Green (Fresh)', 'dark' => 'Dark (Night)'];
+}
+
+// Attributes for the <html> tag, e.g. data-theme="green"
+function theme_attributes(): string
+{
+    $theme = array_key_exists(setting('theme', 'blue'), themes()) ? setting('theme', 'blue') : 'blue';
+    return 'data-theme="' . $theme . '"' . ($theme === 'dark' ? ' data-bs-theme="dark"' : '');
+}
+
+
+// ---------------------------------------------------------------------
+// DATABASE UPGRADES
+// ---------------------------------------------------------------------
+// When a new version adds tables or columns, they are added here
+// automatically. Existing data is never deleted.
+
+const APP_DB_VERSION = 2;
+
+function column_exists(PDO $pdo, string $table, string $column): bool
+{
+    return (bool)db_value($pdo, 'SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?',
+        [$table, $column]);
+}
+
+function run_upgrades(PDO $pdo): void
+{
+    // Version 2: price list, customer levels, service speed, shelf number
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `price_list` (
+        `id` INT UNSIGNED NOT NULL AUTO_INCREMENT, `item_name` VARCHAR(100) NOT NULL, `service_type` VARCHAR(50) NOT NULL,
+        `price` DECIMAL(12,2) NOT NULL, PRIMARY KEY (`id`), UNIQUE KEY `uq_price_item_service` (`item_name`, `service_type`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    $columns = [
+        ['customers', 'tier', "VARCHAR(10) NOT NULL DEFAULT 'Normal' AFTER `phone`"],
+        ['orders', 'ready_at', 'DATETIME NULL AFTER `expected_date`'],
+        ['orders', 'service_speed', "VARCHAR(10) NOT NULL DEFAULT 'Normal' AFTER `ready_at`"],
+        ['orders', 'shelf_number', 'VARCHAR(20) NULL AFTER `service_speed`'],
+        ['orders', 'subtotal', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER `status`'],
+        ['orders', 'speed_percent', 'DECIMAL(5,2) NOT NULL DEFAULT 0.00 AFTER `subtotal`'],
+        ['orders', 'speed_charge', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER `speed_percent`'],
+        ['orders', 'discount_percent', 'DECIMAL(5,2) NOT NULL DEFAULT 0.00 AFTER `speed_charge`'],
+        ['orders', 'discount_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER `discount_percent`'],
+    ];
+    foreach ($columns as [$table, $column, $definition]) {
+        if (!column_exists($pdo, $table, $column)) {
+            $pdo->exec("ALTER TABLE `$table` ADD COLUMN `$column` $definition");
+            if ($table === 'orders' && $column === 'subtotal') {
+                // Old orders: their total was the item subtotal
+                $pdo->exec('UPDATE orders SET subtotal = total_amount');
+            }
+        }
+    }
+    if (!db_value($pdo, "SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders' AND INDEX_NAME = 'idx_orders_ready'")) {
+        $pdo->exec('ALTER TABLE orders ADD KEY `idx_orders_ready` (`ready_at`)');
+    }
+
+    save_setting($pdo, 'db_version', (string)APP_DB_VERSION);
+}
 
 // ---------------------------------------------------------------------
 // MONEY LEDGER (income + expenses)

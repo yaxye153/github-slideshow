@@ -4,13 +4,38 @@
    the side menu and print settings.
    ===================================================================== */
 
-:root {
+/* ---------- 3 themes (chosen in Settings) ---------- */
+:root, [data-theme="blue"] {
     --brand: #0d4f8b;
     --brand-dark: #093a66;
+    --accent: #4fc3f7;
+    --page-bg: #f4f6f9;
+    --head-bg: #eef2f7;
+    --login-bg: linear-gradient(135deg, #0d4f8b, #1c7ed6);
     --sidebar-width: 240px;
 }
+[data-theme="green"] {
+    --brand: #13795b;
+    --brand-dark: #0b5a43;
+    --accent: #ffd166;
+    --page-bg: #f2f7f4;
+    --head-bg: #e3f1ea;
+    --login-bg: linear-gradient(135deg, #0b5a43, #20a374);
+}
+[data-theme="dark"] {
+    --brand: #1f2633;
+    --brand-dark: #141922;
+    --accent: #38bdf8;
+    --page-bg: #10141b;
+    --head-bg: #252d3a;
+    --login-bg: linear-gradient(135deg, #0b0f15, #243045);
+}
+[data-theme="dark"] .bg-white { background-color: var(--bs-body-bg) !important; }
+[data-theme="dark"] .card { border-color: #2c3544; }
+[data-theme="dark"] .stat-card .stat-label { color: #9aa4b2; }
+[data-theme="dark"] .alert-light { background: #1b2230; color: #dbe2ea; }
 
-body { background: #f4f6f9; }
+body { background: var(--page-bg); }
 .bg-brand { background-color: var(--brand) !important; }
 
 /* ---------- Side menu ---------- */
@@ -18,7 +43,7 @@ body { background: #f4f6f9; }
 .sidebar .nav-link { color: rgba(255, 255, 255, .85); padding: .65rem 1rem; border-radius: 0; }
 .sidebar .nav-link i { width: 1.5rem; display: inline-block; }
 .sidebar .nav-link:hover { background: rgba(255, 255, 255, .1); color: #fff; }
-.sidebar .nav-link.active { background: var(--brand-dark); color: #fff; border-left: 4px solid #4fc3f7; }
+.sidebar .nav-link.active { background: var(--brand-dark); color: #fff; border-left: 4px solid var(--accent); }
 .sidebar-brand { align-items: center; color: #fff; font-weight: 700; font-size: 1.15rem; padding: 1rem; text-decoration: none; background: var(--brand-dark); }
 .sidebar-brand:hover { color: #fff; }
 .offcanvas-lg.sidebar .offcanvas-header { background: var(--brand-dark); }
@@ -46,7 +71,7 @@ body { background: #f4f6f9; }
 .page-header { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
 .page-header h1 { font-size: 1.5rem; margin: 0; }
 .table td, .table th { vertical-align: middle; }
-.table thead th { white-space: nowrap; background: #eef2f7; }
+.table thead th { white-space: nowrap; background: var(--head-bg); }
 .money { text-align: right; white-space: nowrap; }
 .text-profit { color: #198754; }
 .text-loss { color: #dc3545; }
@@ -62,13 +87,24 @@ body { background: #f4f6f9; }
 }
 
 /* ---------- Login + installer ---------- */
-.login-page { min-height: 100vh; display: flex; align-items: center; background: linear-gradient(135deg, #0d4f8b, #1c7ed6); padding: 1rem 0; }
+.login-page { min-height: 100vh; display: flex; align-items: center; background: var(--login-bg); padding: 1rem 0; }
 .login-page h1, .login-page .text-muted { color: #fff !important; }
 .login-box { max-width: 420px; }
 .login-logo { font-size: 3rem; color: #fff; }
 .install-steps .step { padding: .35rem .6rem; border-radius: 1rem; font-size: .8rem; background: #e9ecef; color: #6c757d; }
 .install-steps .step.done { background: #d1e7dd; color: #0f5132; }
 .install-steps .step.current { background: var(--brand); color: #fff; }
+
+/* ---------- Order tracking ---------- */
+.track-steps { display: flex; gap: 4px; flex-wrap: wrap; }
+.track-steps .step { flex: 1 1 0; min-width: 62px; text-align: center; font-size: .72rem; padding: .35rem .2rem; border-radius: .35rem;
+    background: var(--head-bg); color: #6c757d; }
+.track-steps .step.done { background: #d1e7dd; color: #0f5132; }
+.track-steps .step.current { background: var(--brand); color: #fff; font-weight: 700; }
+.track-steps .step i { display: block; font-size: 1rem; }
+.shelf { display: inline-block; font-weight: 700; padding: .15rem .55rem; border: 2px dashed var(--brand); border-radius: .4rem; }
+[data-theme="dark"] .shelf { border-color: var(--accent); }
+.theme-swatch { display: inline-block; width: 1rem; height: 1rem; border-radius: 50%; vertical-align: middle; margin-right: .3rem; }
 
 /* ---------- Printing ---------- */
 @media print {

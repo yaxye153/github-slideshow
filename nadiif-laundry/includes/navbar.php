@@ -1,10 +1,11 @@
 <?php
 // navbar.php - the menu.
 // Large screens: menu on the left. Phones/tablets: hamburger button.
-$menu = [
+$navMenu = [
     ['dashboard.php',             'Dashboard',        'bi-speedometer2'],
     ['customers/index.php',       'Customers',        'bi-people'],
     ['orders/index.php',          'Laundry Orders',   'bi-basket'],
+    ['tracking/index.php',        'Order Tracking',   'bi-geo-alt'],
     ['payments/index.php',        'Payments',         'bi-cash-coin'],
     ['income/index.php',          'Income',           'bi-graph-up-arrow'],
     ['expenses/index.php',        'Expenses',         'bi-graph-down-arrow'],
@@ -17,7 +18,7 @@ $menu = [
     ['backup/index.php',          'Backup & Restore', 'bi-database-down'],
     ['settings/index.php',        'Settings',         'bi-gear'],
 ];
-$script = $_SERVER['SCRIPT_NAME'] ?? '';
+$navScript = $_SERVER['SCRIPT_NAME'] ?? '';
 ?>
 <!-- Top bar (phones and tablets) -->
 <nav class="navbar navbar-dark bg-brand d-lg-none sticky-top no-print">
@@ -40,15 +41,15 @@ $script = $_SERVER['SCRIPT_NAME'] ?? '';
             <i class="bi bi-basket2-fill me-2"></i><span><?= e(setting('business_name')) ?></span>
         </a>
         <ul class="nav flex-column w-100 py-2">
-            <?php foreach ($menu as [$link, $label, $icon]):
+            <?php foreach ($navMenu as [$navLink, $navLabel, $navIcon]):
                 // Highlight the current section of the menu
-                $folder = strpos($link, '/') !== false ? dirname($link) . '/' : $link;
-                $active = $link === 'reports/profit_loss.php'
-                    ? strpos($script, '/reports/profit_loss.php') !== false
-                    : (strpos($script, BASE_URL . '/' . $folder) === 0 && strpos($script, '/reports/profit_loss.php') === false);
+                $navFolder = strpos($navLink, '/') !== false ? dirname($navLink) . '/' : $navLink;
+                $navActive = $navLink === 'reports/profit_loss.php'
+                    ? strpos($navScript, '/reports/profit_loss.php') !== false
+                    : (strpos($navScript, BASE_URL . '/' . $navFolder) === 0 && strpos($navScript, '/reports/profit_loss.php') === false);
             ?>
                 <li class="nav-item">
-                    <a class="nav-link<?= $active ? ' active' : '' ?>" href="<?= url($link) ?>"><i class="bi <?= $icon ?>"></i> <?= e($label) ?></a>
+                    <a class="nav-link<?= $navActive ? ' active' : '' ?>" href="<?= url($navLink) ?>"><i class="bi <?= $navIcon ?>"></i> <?= e($navLabel) ?></a>
                 </li>
             <?php endforeach; ?>
             <li class="nav-item mt-2 border-top border-secondary pt-2">

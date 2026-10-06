@@ -33,6 +33,7 @@ To reinstall on purpose, delete `config/installed.lock`. Your existing data is *
 | Menu | What it is for |
 |---|---|
 | **Dashboard** | Today's, this month's and this year's income, expenses and profit/loss; order counts by status; outstanding balance; this month's business costs |
+| **Order Tracking** | Pick a customer, or search by phone, name, order number or shelf. You see how many of their orders are in the shop, the **shelf number** of each one, and where it is now: Received → Washing → Drying → Ironing → Ready → Delivered. **Move to next step** and the shelf number can be changed with one tap. VIP and Express orders come first, and **OVERDUE** orders are marked in red |
 | **Customers** | Add, edit, view, search (name, phone, customer ID or code) and delete customers. *View* shows the customer's history: total orders, spent, paid, outstanding balance and every order |
 | **Laundry Orders** | **New Order** → choose a customer, add items (Item × Qty × Service × Price), and optionally enter the amount paid now. Totals update as you type. Search by order number, customer name, phone, date and status. Change the status from the order page. Print the receipt |
 | **Payments** | Record payments for orders. A payment can't be more than the balance. Each payment goes into Income automatically |
@@ -45,7 +46,17 @@ To reinstall on purpose, delete `config/installed.lock`. Your existing data is *
 | **Profit & Loss** | Daily, weekly, monthly, yearly or custom dates: Gross Income − Expenses = Net **PROFIT** or **LOSS** |
 | **Reports** | Daily, monthly and yearly summary reports, plus 13 detailed reports. Each one has a date filter, search, Print / PDF and CSV export |
 | **Backup & Restore** | Create, download, delete and restore backups |
-| **Settings** | Business name, phone, address, currency, time zone, receipt footer, admin username and password, and service types |
+| **Settings** | Business name, phone, address, currency, time zone, receipt footer, **theme** (Blue, Green or Dark), admin username and password, service types, **Price List**, and **Service Speed and Customer Levels** |
+
+### Price list, service speed and customer levels
+
+- **Price List** (Settings → Price List): enter the price of each item for each service once, for example Shirt / Wash = 1.50. In New Order, typing the item and choosing the service fills in the price automatically. You can still change it for one order. If you type a price yourself, the system does not overwrite it.
+- **Service speed:** each order is **Normal**, **Express** or **VIP**. Each speed has a number of hours (the *Ready By* time is calculated from it) and an extra charge in %. Defaults: Normal 48 h, Express 24 h, VIP 6 h, **0% extra**. Set your own extra charge in Settings.
+- **Customer levels:** each customer is **Normal**, **Silver** or **Gold**. Each level has an automatic discount in %. The **default discount is 0%**, so set it yourself in Settings.
+- **How the order total is calculated:**
+  `Subtotal (items) + Express/VIP charge − level discount = Total`.
+  Example: subtotal $14, Express +50% → $21, Gold −10% → **$18.90**.
+- The % values are saved inside each order. If you change Settings later, **old orders keep their price**.
 
 ### Common tasks
 
@@ -112,8 +123,9 @@ Database name: `nadiif_laundry`. The full structure is in `database/nadiif_laund
 | `users` | Login accounts (`password_hash` only) | — |
 | `settings` | Key/value business settings | — |
 | `service_types` | Wash, Wash & Iron, Iron Only, Dry Clean, Special Cleaning… | — |
-| `customers` | Customers (`customer_code` C0001…) | — |
-| `orders` | Orders (`order_number` ORD-000001…) with total, paid, balance and payment status | `customer_id` → customers (RESTRICT) |
+| `customers` | Customers (`customer_code` C0001…, `tier` Normal/Silver/Gold) | — |
+| `price_list` | Normal price of each item + service (filled into new orders) | UNIQUE (item, service) |
+| `orders` | Orders (`order_number` ORD-000001…), `shelf_number`, `service_speed`, `ready_at`, subtotal, speed charge, discount, total, paid, balance and payment status | `customer_id` → customers (RESTRICT) |
 | `order_items` | Items in an order: qty × price = total | `order_id` → orders (CASCADE) |
 | `payments` | Customer payments | `order_id` → orders (RESTRICT) |
 | `income` | **All** income | `source` + `source_id` (UNIQUE) |
@@ -128,7 +140,10 @@ The order's `total_amount`, `amount_paid`, `balance` and `payment_status` are re
 
 ```
 Item Total     = Quantity × Price
-Order Total    = sum of item totals
+Subtotal       = sum of item totals
+Speed charge   = Subtotal × speed %            (Express / VIP)
+Discount       = (Subtotal + Speed charge) × customer level %
+Order Total    = Subtotal + Speed charge − Discount
 Balance        = Total Amount − Amount Paid
 Payment Status = Paid (paid ≥ total) / Partial (some paid) / Unpaid
 Net Profit     = Total Income − Total Expenses   (negative = LOSS)
@@ -156,6 +171,7 @@ nadiif-laundry/
 │   └── login_check.php    checks username + password
 ├── customers/             index (list/search), form (add/edit), view (history), delete
 ├── orders/                index (list/search), form (new/edit with items), view, status, delete
+├── tracking/              index (order tracking: shelf + washing/drying/ironing steps)
 ├── payments/              index, add, delete
 ├── income/                index, form, delete
 ├── expenses/              index, form, delete
@@ -165,7 +181,7 @@ nadiif-laundry/
 ├── monthly-running/       index, form, delete
 ├── reports/               index, report (13 reports), daily, monthly, yearly, profit_loss
 ├── backup/                index, create, download, delete, restore; files/ = backups (web access blocked)
-├── settings/              index (business + admin account), services (service types)
+├── settings/              index (business, theme, speeds, levels, admin account), services, prices (price list)
 ├── receipt/print.php      printable receipt (80mm / A4 / mobile)
 ├── includes/              init.php, functions.php, header.php, navbar.php, footer.php
 ├── assets/                css/style.css, js/script.js, vendor/ (Bootstrap 5 + icons, offline)
@@ -217,6 +233,8 @@ Test these after installing:
 11. **Reports:** open each report. Try the date filter, search, Print and CSV.
 12. **Receipt:** print in 80mm and A4. Open it on a phone.
 13. **Backup:** create and download a backup. Change some data. Upload the backup → warning → confirm → data is back. A `pre_restore` backup appears in the history. Uploading a `.txt` file or an unrelated `.sql` file is refused.
-14. **Responsive:** use the browser's device mode at phone (375px), tablet (768px) and desktop widths. The menu becomes a hamburger. Tables scroll inside their box, and the page itself does not scroll sideways.
+14. **New features:** set Express +50% and Gold 10%. Add a Gold customer and enter prices in the Price List. In New Order, the prices fill in and the total = (subtotal +50%) −10%. Add a shelf number. In Order Tracking, pick the customer and check the shelf and current step, and that **Move to next step** works. Switch between the 3 themes.
+15. **Updating an existing installation:** copy the new files over the old folder and keep `config/database.php` and `config/installed.lock`. On the next page load, the new columns and tables are added automatically. No data is deleted. Make a backup first anyway.
+16. **Responsive:** use the browser's device mode at phone (375px), tablet (768px) and desktop widths. The menu becomes a hamburger. Tables scroll inside their box, and the page itself does not scroll sideways.
 
-The developer ran these checks automatically on PHP 8.3 and MariaDB 10.11 (the database XAMPP uses): 127 server-side checks and 21 browser checks. All passed.
+The developer ran these checks automatically on PHP 8.3 and MariaDB 10.11 (the database XAMPP uses): 172 server-side checks (including upgrading a database from the first version and restoring a backup) and 31 browser checks (automatic prices, totals, all 3 themes on phone size). All passed.

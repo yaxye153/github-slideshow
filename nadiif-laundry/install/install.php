@@ -67,6 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             foreach (sql_split_statements($schema) as $statement) {
                 $pdo->exec($statement);
             }
+            run_upgrades($pdo); // adds any newer columns to tables kept from an older version
             $log[] = 'Database tables created';
 
             // Default settings (existing values are kept)

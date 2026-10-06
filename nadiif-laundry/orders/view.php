@@ -3,7 +3,7 @@
 require_once __DIR__ . '/../auth/auth_check.php';
 
 $id = (int)($_GET['id'] ?? 0);
-$order = db_row($pdo, 'SELECT o.*, c.full_name, c.phone, c.customer_code FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.id = ?', [$id]);
+$order = db_row($pdo, 'SELECT o.*, c.full_name, c.phone, c.customer_code, c.tier FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.id = ?', [$id]);
 if (!$order) {
     flash('danger', 'Order not found.');
     redirect('orders/index.php');
@@ -16,7 +16,7 @@ $pageTitle = 'Order ' . $order['order_number'];
 require __DIR__ . '/../includes/header.php';
 ?>
 <div class="page-header">
-    <h1><i class="bi bi-basket"></i> Order <?= e($order['order_number']) ?></h1>
+    <h1><i class="bi bi-basket"></i> Order <?= e($order['order_number']) ?> <?= speed_badge($order['service_speed']) ?></h1>
     <div class="d-flex gap-2 flex-wrap">
         <?php if ($order['balance'] > 0 && $order['status'] !== 'Cancelled'): ?>
             <a class="btn btn-success" href="../payments/add.php?order_id=<?= $id ?>"><i class="bi bi-cash"></i> Add Payment</a>
@@ -33,10 +33,12 @@ require __DIR__ . '/../includes/header.php';
     <div class="col-lg-6">
         <div class="card shadow-sm h-100"><div class="card-body">
             <table class="table table-sm mb-0">
-                <tr><th>Customer</th><td><a href="../customers/view.php?id=<?= $order['customer_id'] ?>"><?= e($order['full_name']) ?></a> (<?= e($order['customer_code']) ?>)</td></tr>
+                <tr><th>Customer</th><td><a href="../customers/view.php?id=<?= $order['customer_id'] ?>"><?= e($order['full_name']) ?></a> (<?= e($order['customer_code']) ?>) <?= tier_badge($order['tier']) ?></td></tr>
                 <tr><th>Phone</th><td><?= e($order['phone']) ?></td></tr>
                 <tr><th>Order Date</th><td><?= show_date($order['order_date']) ?></td></tr>
-                <tr><th>Expected</th><td><?= show_date($order['expected_date']) ?></td></tr>
+                <tr><th>Service Speed</th><td><?= speed_badge($order['service_speed']) ?></td></tr>
+                <tr><th>Ready By</th><td><?= $order['ready_at'] ? show_datetime($order['ready_at']) : show_date($order['expected_date']) ?> <?= ready_label($order) ?></td></tr>
+                <tr><th>Shelf Number</th><td><span class="shelf"><?= e($order['shelf_number']) ?: '-' ?></span></td></tr>
                 <tr><th>Pickup/Delivery</th><td><?= e($order['pickup_type']) ?></td></tr>
                 <?php if ($order['pickup_type'] === 'Delivery'): ?>
                     <tr><th>Delivery Address</th><td><?= e($order['delivery_address']) ?: '-' ?></td></tr>
@@ -53,10 +55,16 @@ require __DIR__ . '/../includes/header.php';
             <form method="post" action="status.php" class="d-flex gap-2">
                 <?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>">
                 <select class="form-select" name="status"><?= options(order_statuses(), $order['status']) ?></select>
+                <input class="form-control" name="shelf_number" value="<?= e($order['shelf_number']) ?>" placeholder="Shelf" style="max-width: 110px" maxlength="20" title="Shelf number">
                 <button class="btn btn-primary" type="submit">Update</button>
             </form>
         </div></div>
         <div class="card shadow-sm"><div class="card-body">
+            <?php if ($order['speed_charge'] > 0 || $order['discount_amount'] > 0): ?>
+                <div class="d-flex justify-content-between small"><span>Subtotal (items)</span><span><?= money($order['subtotal']) ?></span></div>
+                <?php if ($order['speed_charge'] > 0): ?><div class="d-flex justify-content-between small"><span><?= e($order['service_speed']) ?> charge (<?= (float)$order['speed_percent'] ?>%)</span><span>+<?= money($order['speed_charge']) ?></span></div><?php endif; ?>
+                <?php if ($order['discount_amount'] > 0): ?><div class="d-flex justify-content-between small"><span>Customer level discount (<?= (float)$order['discount_percent'] ?>%)</span><span>-<?= money($order['discount_amount']) ?></span></div><?php endif; ?>
+            <?php endif; ?>
             <div class="d-flex justify-content-between"><span>Total Amount</span><strong><?= money($order['total_amount']) ?></strong></div>
             <div class="d-flex justify-content-between"><span>Amount Paid</span><strong class="text-success"><?= money($order['amount_paid']) ?></strong></div>
             <div class="d-flex justify-content-between fs-5"><span>Balance</span><strong class="text-danger"><?= money($order['balance']) ?></strong></div>
@@ -76,7 +84,7 @@ require __DIR__ . '/../includes/header.php';
                     <td class="money"><?= money($it['price']) ?></td><td class="money"><?= money($it['total']) ?></td></tr>
             <?php endforeach; ?>
             </tbody>
-            <tfoot><tr><th colspan="4" class="text-end">Order Total</th><th class="money"><?= money($order['total_amount']) ?></th></tr></tfoot>
+            <tfoot><tr><th colspan="4" class="text-end">Items Subtotal</th><th class="money"><?= money($order['subtotal']) ?></th></tr></tfoot>
         </table>
     </div>
 </div>

@@ -3,7 +3,7 @@
 require_once __DIR__ . '/../auth/auth_check.php';
 
 $id = (int)($_GET['id'] ?? 0);
-$customer = ['full_name' => '', 'phone' => '', 'alt_phone' => '', 'address' => '', 'notes' => '', 'registration_date' => date('Y-m-d')];
+$customer = ['full_name' => '', 'tier' => 'Normal', 'phone' => '', 'alt_phone' => '', 'address' => '', 'notes' => '', 'registration_date' => date('Y-m-d')];
 
 // Get customer information when editing
 if ($id) {
@@ -19,6 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $customer = [
         'full_name' => post_text('full_name', 100),
         'phone' => post_text('phone', 30),
+        'tier' => in_list(post_text('tier', 10), array_keys(customer_tiers()), 'Normal'),
         'alt_phone' => post_text('alt_phone', 30),
         'address' => post_text('address', 255),
         'notes' => post_text('notes', 2000),
@@ -37,14 +38,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         require_csrf('customers/index.php');
 
         if ($id) {
-            db_query($pdo, 'UPDATE customers SET full_name = ?, phone = ?, alt_phone = ?, address = ?, notes = ?, registration_date = ? WHERE id = ?',
-                [$customer['full_name'], $customer['phone'], $customer['alt_phone'], $customer['address'], $customer['notes'], $customer['registration_date'], $id]);
+            db_query($pdo, 'UPDATE customers SET full_name = ?, tier = ?, phone = ?, alt_phone = ?, address = ?, notes = ?, registration_date = ? WHERE id = ?',
+                [$customer['full_name'], $customer['tier'], $customer['phone'], $customer['alt_phone'], $customer['address'], $customer['notes'], $customer['registration_date'], $id]);
             flash('success', 'Customer updated successfully.');
         } else {
             // Save customer, then give it a code like C0001
             $pdo->beginTransaction();
-            db_query($pdo, 'INSERT INTO customers (full_name, phone, alt_phone, address, notes, registration_date) VALUES (?, ?, ?, ?, ?, ?)',
-                [$customer['full_name'], $customer['phone'], $customer['alt_phone'], $customer['address'], $customer['notes'], $customer['registration_date']]);
+            db_query($pdo, 'INSERT INTO customers (full_name, tier, phone, alt_phone, address, notes, registration_date) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [$customer['full_name'], $customer['tier'], $customer['phone'], $customer['alt_phone'], $customer['address'], $customer['notes'], $customer['registration_date']]);
             $id = (int)$pdo->lastInsertId();
             db_query($pdo, 'UPDATE customers SET customer_code = ? WHERE id = ?', [sprintf('C%04d', $id), $id]);
             $pdo->commit();
@@ -75,7 +76,15 @@ require __DIR__ . '/../includes/header.php';
             <label class="form-label">Full Name *</label>
             <input class="form-control" name="full_name" value="<?= e($customer['full_name']) ?>" required maxlength="100">
         </div>
-        <div class="col-md-6">
+        <div class="col-6 col-md-3">
+            <label class="form-label">Customer Level</label>
+            <select class="form-select" name="tier">
+                <?php foreach (customer_tiers() as $tier => $discount): ?>
+                    <option value="<?= $tier ?>" <?= $customer['tier'] === $tier ? 'selected' : '' ?>><?= $tier ?><?= $discount > 0 ? ' (' . (float)$discount . '% discount)' : '' ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="col-6 col-md-3">
             <label class="form-label">Registration Date</label>
             <input class="form-control" type="date" name="registration_date" value="<?= e($customer['registration_date']) ?>" required>
         </div>

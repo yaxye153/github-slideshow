@@ -93,7 +93,7 @@ $reports = [
     'customers' => [
         'title' => 'Customer Report',
         'note' => 'All customers. Order totals only include orders inside the selected dates (cancelled orders not included).',
-        'sql' => "SELECT c.customer_code AS `Code`, c.full_name AS `Customer`, c.phone AS `Phone`, c.registration_date AS `Registered`,
+        'sql' => "SELECT c.customer_code AS `Code`, c.full_name AS `Customer`, c.tier AS `Level`, c.phone AS `Phone`, c.registration_date AS `Registered`,
                          COUNT(o.id) AS `Orders`, COALESCE(SUM(o.total_amount), 0) AS `Total Spent`, COALESCE(SUM(o.amount_paid), 0) AS `Paid`,
                          COALESCE(SUM(o.balance), 0) AS `Balance`
                   FROM customers c LEFT JOIN orders o ON o.customer_id = c.id AND o.status <> 'Cancelled' AND o.order_date BETWEEN ? AND ?
@@ -103,7 +103,7 @@ $reports = [
     'orders' => [
         'title' => 'Laundry Order Report',
         'sql' => "SELECT o.order_number AS `Order`, o.order_date AS `Date`, c.full_name AS `Customer`, c.phone AS `Phone`, o.status AS `Status`,
-                         o.payment_status AS `Payment`, o.total_amount AS `Total`, o.amount_paid AS `Paid`, o.balance AS `Balance`
+                         o.service_speed AS `Speed`, o.shelf_number AS `Shelf`, o.payment_status AS `Payment`, o.total_amount AS `Total`, o.amount_paid AS `Paid`, o.balance AS `Balance`
                   FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.order_date BETWEEN ? AND ? ORDER BY o.order_date, o.id",
         'money' => ['Total', 'Paid', 'Balance'], 'dates' => ['Date'], 'sum' => ['Total', 'Paid', 'Balance'],
     ],

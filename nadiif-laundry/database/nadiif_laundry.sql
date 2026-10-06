@@ -44,12 +44,24 @@ CREATE TABLE IF NOT EXISTS `service_types` (
   UNIQUE KEY `uq_service_types_name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Customers
+-- Price list: the normal price of each item + service.
+-- The order form fills in these prices automatically.
+CREATE TABLE IF NOT EXISTS `price_list` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `item_name` VARCHAR(100) NOT NULL,
+  `service_type` VARCHAR(50) NOT NULL,
+  `price` DECIMAL(12,2) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_price_item_service` (`item_name`, `service_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Customers (tier: Normal, Silver, Gold)
 CREATE TABLE IF NOT EXISTS `customers` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `customer_code` VARCHAR(20) NULL,
   `full_name` VARCHAR(100) NOT NULL,
   `phone` VARCHAR(30) NOT NULL,
+  `tier` VARCHAR(10) NOT NULL DEFAULT 'Normal',
   `alt_phone` VARCHAR(30) NULL,
   `address` VARCHAR(255) NULL,
   `notes` TEXT NULL,
@@ -68,10 +80,18 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `customer_id` INT UNSIGNED NOT NULL,
   `order_date` DATE NOT NULL,
   `expected_date` DATE NULL,
+  `ready_at` DATETIME NULL,
+  `service_speed` VARCHAR(10) NOT NULL DEFAULT 'Normal',
+  `shelf_number` VARCHAR(20) NULL,
   `pickup_type` VARCHAR(20) NOT NULL DEFAULT 'Pickup',
   `delivery_address` VARCHAR(255) NULL,
   `delivery_phone` VARCHAR(30) NULL,
   `status` VARCHAR(20) NOT NULL DEFAULT 'Received',
+  `subtotal` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `speed_percent` DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+  `speed_charge` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `discount_percent` DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+  `discount_amount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   `total_amount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   `amount_paid` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   `balance` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
@@ -83,6 +103,7 @@ CREATE TABLE IF NOT EXISTS `orders` (
   KEY `idx_orders_customer` (`customer_id`),
   KEY `idx_orders_date` (`order_date`),
   KEY `idx_orders_status` (`status`),
+  KEY `idx_orders_ready` (`ready_at`),
   CONSTRAINT `fk_orders_customer` FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

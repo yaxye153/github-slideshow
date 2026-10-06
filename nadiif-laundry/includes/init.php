@@ -48,4 +48,10 @@ $pdo = db_connect(DB_HOST, DB_NAME, DB_USER, DB_PASS);
 
 // Load business settings (name, currency, ...)
 $SETTINGS = load_settings($pdo);
+
+// Add new tables/columns automatically after an update (or after restoring an old backup)
+if ((int)setting('db_version', '1') < APP_DB_VERSION) {
+    run_upgrades($pdo);
+    $SETTINGS = load_settings($pdo);
+}
 date_default_timezone_set(setting('timezone', 'Africa/Mogadishu'));

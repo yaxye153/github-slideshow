@@ -24,9 +24,10 @@ $pageTitle = $customer['full_name'];
 require __DIR__ . '/../includes/header.php';
 ?>
 <div class="page-header">
-    <h1><i class="bi bi-person"></i> <?= e($customer['full_name']) ?></h1>
+    <h1><i class="bi bi-person"></i> <?= e($customer['full_name']) ?> <?= tier_badge($customer['tier']) ?></h1>
     <div class="d-flex gap-2 flex-wrap">
         <a class="btn btn-primary" href="../orders/form.php?customer_id=<?= $id ?>"><i class="bi bi-basket"></i> New Order</a>
+        <a class="btn btn-outline-info" href="../tracking/index.php?customer_id=<?= $id ?>"><i class="bi bi-geo-alt"></i> Track Orders</a>
         <a class="btn btn-outline-secondary" href="form.php?id=<?= $id ?>"><i class="bi bi-pencil"></i> Edit</a>
         <form method="post" action="delete.php" data-confirm="Delete this customer? This cannot be undone.">
             <?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>">
@@ -41,6 +42,7 @@ require __DIR__ . '/../includes/header.php';
             <table class="table table-sm mb-0">
                 <tr><th>Customer ID</th><td><?= (int)$customer['id'] ?></td></tr>
                 <tr><th>Customer Code</th><td><?= e($customer['customer_code']) ?></td></tr>
+                <tr><th>Customer Level</th><td><?= tier_badge($customer['tier']) ?> <?= customer_tiers()[$customer['tier']] ?? 0 ? '(' . (float)customer_tiers()[$customer['tier']] . '% discount on new orders)' : '' ?></td></tr>
                 <tr><th>Phone</th><td><?= e($customer['phone']) ?></td></tr>
                 <tr><th>Alternative Phone</th><td><?= e($customer['alt_phone']) ?: '-' ?></td></tr>
                 <tr><th>Address</th><td><?= e($customer['address']) ?: '-' ?></td></tr>
@@ -63,12 +65,13 @@ require __DIR__ . '/../includes/header.php';
 <div class="card shadow-sm">
     <div class="table-responsive">
         <table class="table table-hover mb-0">
-            <thead><tr><th>Order</th><th>Date</th><th>Status</th><th>Payment</th><th class="money">Total</th><th class="money">Paid</th><th class="money">Balance</th></tr></thead>
+            <thead><tr><th>Order</th><th>Date</th><th>Shelf</th><th>Status</th><th>Payment</th><th class="money">Total</th><th class="money">Paid</th><th class="money">Balance</th></tr></thead>
             <tbody>
             <?php foreach ($orders as $o): ?>
                 <tr>
                     <td><a href="../orders/view.php?id=<?= $o['id'] ?>"><?= e($o['order_number']) ?></a></td>
                     <td><?= show_date($o['order_date']) ?></td>
+                    <td><?= e($o['shelf_number']) ?: '-' ?></td>
                     <td><?= badge($o['status']) ?></td>
                     <td><?= badge($o['payment_status']) ?></td>
                     <td class="money"><?= money($o['total_amount']) ?></td>
@@ -76,7 +79,7 @@ require __DIR__ . '/../includes/header.php';
                     <td class="money"><?= money($o['balance']) ?></td>
                 </tr>
             <?php endforeach; ?>
-            <?php if (!$orders): ?><tr><td colspan="7" class="text-center text-muted py-4">This customer has no orders yet.</td></tr><?php endif; ?>
+            <?php if (!$orders): ?><tr><td colspan="8" class="text-center text-muted py-4">This customer has no orders yet.</td></tr><?php endif; ?>
             </tbody>
         </table>
     </div>

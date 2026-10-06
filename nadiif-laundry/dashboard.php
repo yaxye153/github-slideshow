@@ -17,6 +17,9 @@ foreach (db_all($pdo, 'SELECT status, COUNT(*) AS n FROM orders GROUP BY status'
 }
 $totalOrders = array_sum($statusCounts);
 $inProcess = $statusCounts['Washing'] + $statusCounts['Drying'] + $statusCounts['Ironing'];
+// Orders that should already be ready but are not
+$overdue = (int)db_value($pdo, "SELECT COUNT(*) FROM orders WHERE status NOT IN ('Ready', 'Delivered', 'Cancelled') AND ready_at < ?", [date('Y-m-d H:i:s')]);
+$expressActive = (int)db_value($pdo, "SELECT COUNT(*) FROM orders WHERE status NOT IN ('Delivered', 'Cancelled') AND service_speed <> 'Normal'");
 
 // Financial: Calculate profit = income - expenses
 $todayIncome = total_income($pdo, $today, $today);
@@ -64,6 +67,7 @@ require __DIR__ . '/includes/header.php';
     <div class="d-flex gap-2 flex-wrap">
         <a class="btn btn-primary" href="<?= url('orders/form.php') ?>"><i class="bi bi-plus-lg"></i> New Order</a>
         <a class="btn btn-outline-primary" href="<?= url('customers/form.php') ?>"><i class="bi bi-person-plus"></i> New Customer</a>
+        <a class="btn btn-outline-info" href="<?= url('tracking/index.php') ?>"><i class="bi bi-geo-alt"></i> Order Tracking</a>
     </div>
 </div>
 
@@ -95,6 +99,8 @@ require __DIR__ . '/includes/header.php';
     <?= stat_card('Ready', (string)$statusCounts['Ready'], 'bi-check2-circle', 'orange') ?>
     <?= stat_card('Delivered', (string)$statusCounts['Delivered'], 'bi-truck', 'green') ?>
     <?= stat_card('Cancelled', (string)$statusCounts['Cancelled'], 'bi-x-circle', 'red') ?>
+    <?= stat_card('Overdue (not ready in time)', (string)$overdue, 'bi-alarm', 'red') ?>
+    <?= stat_card('Express / VIP in shop', (string)$expressActive, 'bi-lightning-charge', 'orange') ?>
 </div>
 
 <div class="section-title">Business Costs (<?= date('F Y') ?>)</div>

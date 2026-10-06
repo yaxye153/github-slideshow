@@ -12,8 +12,8 @@ $to = get_date('to', '');
 $where = [];
 $params = [];
 if ($q !== '') {
-    $where[] = '(o.order_number LIKE ? OR c.full_name LIKE ? OR c.phone LIKE ? OR o.delivery_phone LIKE ?)';
-    array_push($params, "%$q%", "%$q%", "%$q%", "%$q%");
+    $where[] = '(o.order_number LIKE ? OR c.full_name LIKE ? OR c.phone LIKE ? OR o.delivery_phone LIKE ? OR o.shelf_number = ?)';
+    array_push($params, "%$q%", "%$q%", "%$q%", "%$q%", $q);
 }
 if ($status !== '') { $where[] = 'o.status = ?'; $params[] = $status; }
 if ($payStatus !== '') { $where[] = 'o.payment_status = ?'; $params[] = $payStatus; }
@@ -35,7 +35,7 @@ require __DIR__ . '/../includes/header.php';
 
 <form class="card card-body shadow-sm mb-3 filter-form" method="get">
     <div class="row g-2">
-        <div class="col-12 col-md-4"><input class="form-control" name="q" value="<?= e($q) ?>" placeholder="Order number, customer name or phone"></div>
+        <div class="col-12 col-md-4"><input class="form-control" name="q" value="<?= e($q) ?>" placeholder="Order number, customer, phone or shelf"></div>
         <div class="col-6 col-md-2"><select class="form-select" name="status"><option value="">All statuses</option><?= options(order_statuses(), $status) ?></select></div>
         <div class="col-6 col-md-2"><select class="form-select" name="pay"><option value="">All payments</option><?= options(['Paid', 'Partial', 'Unpaid'], $payStatus) ?></select></div>
         <div class="col-6 col-md-2"><input class="form-control" type="date" name="from" value="<?= e($from) ?>" title="From date"></div>
@@ -50,15 +50,17 @@ require __DIR__ . '/../includes/header.php';
 <div class="card shadow-sm">
     <div class="table-responsive">
         <table class="table table-hover mb-0">
-            <thead><tr><th>Order</th><th>Customer</th><th>Date</th><th>Expected</th><th>Status</th><th>Payment</th><th class="money">Total</th><th class="money">Balance</th><th></th></tr></thead>
+            <thead><tr><th>Order</th><th>Customer</th><th>Date</th><th>Ready By</th><th>Shelf</th><th>Status</th><th>Payment</th><th class="money">Total</th><th class="money">Balance</th><th></th></tr></thead>
             <tbody>
             <?php foreach ($orders as $o): ?>
                 <tr>
                     <td><a href="view.php?id=<?= $o['id'] ?>"><?= e($o['order_number']) ?></a>
-                        <?= $o['pickup_type'] === 'Delivery' ? '<i class="bi bi-truck text-muted" title="Delivery"></i>' : '' ?></td>
+                        <?= $o['pickup_type'] === 'Delivery' ? '<i class="bi bi-truck text-muted" title="Delivery"></i>' : '' ?>
+                        <?= $o['service_speed'] !== 'Normal' ? speed_badge($o['service_speed']) : '' ?></td>
                     <td><?= e($o['full_name']) ?><br><small class="text-muted"><?= e($o['phone']) ?></small></td>
                     <td><?= show_date($o['order_date']) ?></td>
-                    <td><?= show_date($o['expected_date']) ?></td>
+                    <td><?= $o['ready_at'] ? show_datetime($o['ready_at']) : show_date($o['expected_date']) ?> <?= ready_label($o) ?></td>
+                    <td><?= e($o['shelf_number']) ?: '-' ?></td>
                     <td><?= badge($o['status']) ?></td>
                     <td><?= badge($o['payment_status']) ?></td>
                     <td class="money"><?= money($o['total_amount']) ?></td>
@@ -72,7 +74,7 @@ require __DIR__ . '/../includes/header.php';
                     </td>
                 </tr>
             <?php endforeach; ?>
-            <?php if (!$orders): ?><tr><td colspan="9" class="text-center text-muted py-4">No orders found.</td></tr><?php endif; ?>
+            <?php if (!$orders): ?><tr><td colspan="10" class="text-center text-muted py-4">No orders found.</td></tr><?php endif; ?>
             </tbody>
         </table>
     </div>
