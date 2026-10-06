@@ -1,0 +1,128 @@
+<?php
+// orders/view.php - full details of one order: items, payments and status
+require_once __DIR__ . '/../auth/auth_check.php';
+
+$id = (int)($_GET['id'] ?? 0);
+$order = db_row($pdo, 'SELECT o.*, c.full_name, c.phone, c.customer_code FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.id = ?', [$id]);
+if (!$order) {
+    flash('danger', 'Order not found.');
+    redirect('orders/index.php');
+}
+$items = db_all($pdo, 'SELECT * FROM order_items WHERE order_id = ? ORDER BY id', [$id]);
+$payments = db_all($pdo, 'SELECT * FROM payments WHERE order_id = ? ORDER BY payment_date, id', [$id]);
+$deliveries = db_all($pdo, 'SELECT * FROM deliveries WHERE order_id = ? ORDER BY delivery_date', [$id]);
+
+$pageTitle = 'Order ' . $order['order_number'];
+require __DIR__ . '/../includes/header.php';
+?>
+<div class="page-header">
+    <h1><i class="bi bi-basket"></i> Order <?= e($order['order_number']) ?></h1>
+    <div class="d-flex gap-2 flex-wrap">
+        <?php if ($order['balance'] > 0 && $order['status'] !== 'Cancelled'): ?>
+            <a class="btn btn-success" href="../payments/add.php?order_id=<?= $id ?>"><i class="bi bi-cash"></i> Add Payment</a>
+        <?php endif; ?>
+        <a class="btn btn-outline-dark" href="../receipt/print.php?id=<?= $id ?>" target="_blank"><i class="bi bi-printer"></i> Receipt</a>
+        <a class="btn btn-outline-secondary" href="form.php?id=<?= $id ?>"><i class="bi bi-pencil"></i> Edit</a>
+        <?php if ($order['pickup_type'] === 'Delivery'): ?>
+            <a class="btn btn-outline-primary" href="../delivery/form.php?order_id=<?= $id ?>"><i class="bi bi-truck"></i> Record Delivery</a>
+        <?php endif; ?>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100"><div class="card-body">
+            <table class="table table-sm mb-0">
+                <tr><th>Customer</th><td><a href="../customers/view.php?id=<?= $order['customer_id'] ?>"><?= e($order['full_name']) ?></a> (<?= e($order['customer_code']) ?>)</td></tr>
+                <tr><th>Phone</th><td><?= e($order['phone']) ?></td></tr>
+                <tr><th>Order Date</th><td><?= show_date($order['order_date']) ?></td></tr>
+                <tr><th>Expected</th><td><?= show_date($order['expected_date']) ?></td></tr>
+                <tr><th>Pickup/Delivery</th><td><?= e($order['pickup_type']) ?></td></tr>
+                <?php if ($order['pickup_type'] === 'Delivery'): ?>
+                    <tr><th>Delivery Address</th><td><?= e($order['delivery_address']) ?: '-' ?></td></tr>
+                    <tr><th>Delivery Phone</th><td><?= e($order['delivery_phone']) ?: '-' ?></td></tr>
+                <?php endif; ?>
+                <tr><th>Notes</th><td><?= nl2br(e($order['notes'])) ?: '-' ?></td></tr>
+            </table>
+        </div></div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card shadow-sm mb-3"><div class="card-body">
+            <div class="d-flex justify-content-between mb-2"><span>Status</span><?= badge($order['status']) ?></div>
+            <!-- Change status quickly -->
+            <form method="post" action="status.php" class="d-flex gap-2">
+                <?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>">
+                <select class="form-select" name="status"><?= options(order_statuses(), $order['status']) ?></select>
+                <button class="btn btn-primary" type="submit">Update</button>
+            </form>
+        </div></div>
+        <div class="card shadow-sm"><div class="card-body">
+            <div class="d-flex justify-content-between"><span>Total Amount</span><strong><?= money($order['total_amount']) ?></strong></div>
+            <div class="d-flex justify-content-between"><span>Amount Paid</span><strong class="text-success"><?= money($order['amount_paid']) ?></strong></div>
+            <div class="d-flex justify-content-between fs-5"><span>Balance</span><strong class="text-danger"><?= money($order['balance']) ?></strong></div>
+            <div class="d-flex justify-content-between mt-1"><span>Payment Status</span><?= badge($order['payment_status']) ?></div>
+        </div></div>
+    </div>
+</div>
+
+<div class="section-title">Items</div>
+<div class="card shadow-sm mb-3">
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead><tr><th>Item</th><th class="text-center">Qty</th><th>Service</th><th class="money">Price</th><th class="money">Total</th></tr></thead>
+            <tbody>
+            <?php foreach ($items as $it): ?>
+                <tr><td><?= e($it['item_name']) ?></td><td class="text-center"><?= (int)$it['quantity'] ?></td><td><?= e($it['service_type']) ?></td>
+                    <td class="money"><?= money($it['price']) ?></td><td class="money"><?= money($it['total']) ?></td></tr>
+            <?php endforeach; ?>
+            </tbody>
+            <tfoot><tr><th colspan="4" class="text-end">Order Total</th><th class="money"><?= money($order['total_amount']) ?></th></tr></tfoot>
+        </table>
+    </div>
+</div>
+
+<div class="section-title">Payments</div>
+<div class="card shadow-sm mb-3">
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead><tr><th>Date</th><th>Method</th><th>Reference</th><th>Notes</th><th class="money">Amount</th><th></th></tr></thead>
+            <tbody>
+            <?php foreach ($payments as $pay): ?>
+                <tr>
+                    <td><?= show_date($pay['payment_date']) ?></td><td><?= e($pay['payment_method']) ?></td>
+                    <td><?= e($pay['reference']) ?></td><td><?= e($pay['notes']) ?></td>
+                    <td class="money"><?= money($pay['amount']) ?></td>
+                    <td class="text-end">
+                        <form method="post" action="../payments/delete.php" data-confirm="Delete this payment? It will also be removed from income.">
+                            <?= csrf_field() ?><input type="hidden" name="id" value="<?= $pay['id'] ?>">
+                            <button class="btn btn-sm btn-outline-danger" type="submit" title="Delete payment"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            <?php if (!$payments): ?><tr><td colspan="6" class="text-center text-muted py-3">No payments yet.</td></tr><?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<?php if ($deliveries): ?>
+    <div class="section-title">Deliveries</div>
+    <div class="card shadow-sm mb-3"><div class="table-responsive"><table class="table mb-0">
+        <thead><tr><th>Date</th><th>Delivery Person</th><th class="money">Cost</th><th class="money">Income</th><th></th></tr></thead>
+        <tbody>
+        <?php foreach ($deliveries as $d): ?>
+            <tr><td><?= show_date($d['delivery_date']) ?></td><td><?= e($d['delivery_person']) ?></td>
+                <td class="money"><?= money($d['delivery_cost']) ?></td><td class="money"><?= money($d['delivery_income']) ?></td>
+                <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="../delivery/form.php?id=<?= $d['id'] ?>"><i class="bi bi-pencil"></i></a></td></tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table></div></div>
+<?php endif; ?>
+
+<form method="post" action="delete.php" class="mt-4" data-confirm="Delete this order? This cannot be undone.">
+    <?= csrf_field() ?><input type="hidden" name="id" value="<?= $id ?>">
+    <button class="btn btn-outline-danger" type="submit" <?= $payments ? 'disabled title="Orders with payments cannot be deleted"' : '' ?>><i class="bi bi-trash"></i> Delete Order</button>
+    <?php if ($payments): ?><small class="text-muted ms-2">Orders with payments cannot be deleted. Use status "Cancelled" instead.</small><?php endif; ?>
+</form>
+<?php require __DIR__ . '/../includes/footer.php'; ?>
