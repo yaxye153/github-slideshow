@@ -79,6 +79,30 @@ To reinstall on purpose, delete `config/installed.lock`. Your existing data is *
   5. A safety backup of the current data is saved automatically as `nadiif_laundry_pre_restore_….sql`. Then the backup is restored. If the restore fails part-way, the system loads the safety backup again on its own.
   6. You see a success message and log in again, using the users stored in the backup.
 - You can also restore any file from **Backup History**.
+### Daily email backup (Gmail)
+
+**Backup & Restore → Email Backup Settings** can send a backup to Gmail every day.
+
+1. **Create a Gmail App Password.** Gmail does not accept your normal password here.
+   - Open myaccount.google.com → **Security** → turn on **2-Step Verification**.
+   - Search for **App passwords**, create one named "Nadiif Laundry" and copy the 16 letters.
+2. Enter the Gmail address and the App Password. Optionally enter another address in "Send backup to", then choose a time (for example 20:00). Tick **Send a backup to Gmail every day** and click **Save**.
+3. Click **Send test now**. The email should arrive within a minute. The attachment is `nadiif_laundry_auto_….sql.gz`.
+
+**How the daily sending works:**
+
+- After the chosen time, the first page anyone opens in the system sends today's backup in the background. It is sent at most once per day, and the page does not wait for it.
+- If the computer is off, or nobody opens the system that day, **nothing is sent that day**. To send even when nobody uses the system, use Windows Task Scheduler:
+  - Open Task Scheduler and choose **Create Basic Task** → *Daily* → pick a time when the PC is on.
+  - Choose *Start a program* and select `C:\xampp\htdocs\nadiif-laundry\backup\daily-email-backup.bat`.
+  - MySQL must be running at that time. In the XAMPP Control Panel you can make MySQL start automatically as a Windows service.
+- If sending fails (no internet, wrong password), the system tries again after 1 hour. The dashboard shows a red warning until it works again.
+- The last 14 automatic backups are also kept on the computer.
+- **To restore from the email:** open the `.gz` file with 7-Zip or WinRAR to get the `.sql` file, then use **UPLOAD BACKUP**.
+- The App Password is stored in `config/mail.php`, **not in the database**, so it never ends up inside a backup or an email. Keep that file private.
+- The email contains **all business data**. Send it only to an account you control, with 2-Step Verification turned on.
+- Gmail's attachment limit is 25 MB. The backup is compressed, which is enough for many years of a small shop's data. If it ever gets too big, the system tells you.
+
 - XAMPP's default upload limit is about 40 MB. For bigger backups, raise `upload_max_filesize` and `post_max_size` in `php.ini`.
 
 ---
@@ -180,7 +204,8 @@ nadiif-laundry/
 ├── daily-running/         index, form, delete
 ├── monthly-running/       index, form, delete
 ├── reports/               index, report (13 reports), daily, monthly, yearly, profit_loss
-├── backup/                index, create, download, delete, restore; files/ = backups (web access blocked)
+├── backup/                index, create, download, delete, restore, email (Gmail settings), auto (daily trigger),
+│                          cron.php + daily-email-backup.bat (Task Scheduler); files/ = backups (web access blocked)
 ├── settings/              index (business, theme, speeds, levels, admin account), services, prices (price list)
 ├── receipt/print.php      printable receipt (80mm / A4 / mobile)
 ├── includes/              init.php, functions.php, header.php, navbar.php, footer.php
@@ -202,6 +227,7 @@ Each page follows the same simple pattern:
 - Upload checks: `.sql` only, size limit, content check against a whitelist of statements, stored under a random name in a folder the browser can't open (`.htaccess`).
 - Backup download and delete accept only file names that match the backup pattern, so other system files can't be reached.
 - PHP errors are hidden from users and written to the PHP error log. Users see a friendly message.
+- The email backup connects to Gmail with STARTTLS and always checks Gmail's security certificate. The App Password lives only in `config/mail.php`.
 - `config/`, `includes/`, `database/` and `backup/files/` are blocked from the browser with `.htaccess`. This needs Apache `AllowOverride`, which XAMPP enables by default.
 
 ---
@@ -234,7 +260,8 @@ Test these after installing:
 12. **Receipt:** print in 80mm and A4. Open it on a phone.
 13. **Backup:** create and download a backup. Change some data. Upload the backup → warning → confirm → data is back. A `pre_restore` backup appears in the history. Uploading a `.txt` file or an unrelated `.sql` file is refused.
 14. **New features:** set Express +50% and Gold 10%. Add a Gold customer and enter prices in the Price List. In New Order, the prices fill in and the total = (subtotal +50%) −10%. Add a shelf number. In Order Tracking, pick the customer and check the shelf and current step, and that **Move to next step** works. Switch between the 3 themes.
-15. **Updating an existing installation:** copy the new files over the old folder and keep `config/database.php` and `config/installed.lock`. On the next page load, the new columns and tables are added automatically. No data is deleted. Make a backup first anyway.
-16. **Responsive:** use the browser's device mode at phone (375px), tablet (768px) and desktop widths. The menu becomes a hamburger. Tables scroll inside their box, and the page itself does not scroll sideways.
+15. **Email backup:** create an App Password, save the settings, click **Send test now** and check the inbox. Enter a wrong password → you get a clear error message and a red warning on the dashboard.
+16. **Updating an existing installation:** copy the new files over the old folder and keep `config/database.php` and `config/installed.lock`. On the next page load, the new columns and tables are added automatically. No data is deleted. Make a backup first anyway.
+17. **Responsive:** use the browser's device mode at phone (375px), tablet (768px) and desktop widths. The menu becomes a hamburger. Tables scroll inside their box, and the page itself does not scroll sideways.
 
-The developer ran these checks automatically on PHP 8.3 and MariaDB 10.11 (the database XAMPP uses): 172 server-side checks (including upgrading a database from the first version and restoring a backup) and 31 browser checks (automatic prices, totals, all 3 themes on phone size). All passed.
+The developer ran these checks automatically on PHP 8.3 and MariaDB 10.11 (the database XAMPP uses): 204 server-side checks (including upgrading a database from the first version, restoring a backup, and sending the email backup to a test mail server that, like Gmail, requires STARTTLS encryption and a password login) and 31 browser checks (automatic prices, totals, all 3 themes on phone size). All passed.

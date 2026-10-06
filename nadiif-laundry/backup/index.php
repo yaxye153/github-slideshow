@@ -35,6 +35,21 @@ require __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
+<?php
+$mailConfig = mail_config();
+$lastEmail = setting('email_backup_last_success');
+$lastEmailMessage = setting('email_backup_last_message');
+?>
+<div class="card shadow-sm mb-3"><div class="card-body d-flex flex-wrap gap-3 align-items-center">
+    <div class="flex-grow-1">
+        <h2 class="h5 mb-1"><i class="bi bi-envelope-at"></i> Daily Email Backup (Gmail)
+            <?= $mailConfig['enabled'] ? '<span class="badge bg-success">ON</span>' : '<span class="badge bg-secondary">OFF</span>' ?></h2>
+        <div class="small text-muted">Last sent: <?= $lastEmail ? show_datetime($lastEmail) : 'never' ?>
+            <?php if (strpos($lastEmailMessage, 'FAILED') === 0): ?><br><span class="text-danger"><?= e($lastEmailMessage) ?></span><?php endif; ?></div>
+    </div>
+    <a class="btn btn-outline-primary" href="email.php"><i class="bi bi-gear"></i> Email Backup Settings</a>
+</div></div>
+
 <div class="section-title">Backup History</div>
 <div class="card shadow-sm">
     <div class="table-responsive">
@@ -44,7 +59,8 @@ require __DIR__ . '/../includes/header.php';
             <?php foreach ($backups as $b): ?>
                 <tr>
                     <td><i class="bi bi-file-earmark-code"></i> <?= e($b['name']) ?>
-                        <?= strpos($b['name'], 'pre_restore') !== false ? '<span class="badge bg-info text-dark">automatic, before restore</span>' : '' ?></td>
+                        <?= strpos($b['name'], 'pre_restore') !== false ? '<span class="badge bg-info text-dark">automatic, before restore</span>' : '' ?>
+                        <?= strpos($b['name'], 'nadiif_laundry_auto_') === 0 ? '<span class="badge bg-secondary">daily email backup</span>' : '' ?></td>
                     <td><?= date('d M Y H:i', $b['time']) ?></td>
                     <td><?= human_size($b['size']) ?></td>
                     <td class="actions text-end">

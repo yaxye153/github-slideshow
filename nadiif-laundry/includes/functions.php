@@ -824,7 +824,7 @@ function backup_dir(): string
 // Only these file names may be downloaded or deleted
 function is_backup_filename(string $name): bool
 {
-    return (bool)preg_match('/^nadiif_laundry_(backup|pre_restore)_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(_\d+)?\.sql$/', $name);
+    return (bool)preg_match('/^nadiif_laundry_(backup|pre_restore|auto)_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(_\d+)?\.sql$/', $name);
 }
 
 // Create database backup: writes every table (structure + data) to a .sql file.
@@ -1048,5 +1048,131 @@ function run_restore(PDO $pdo, array $statements): void
         }
     } finally {
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
+    }
+}
+
+
+// ---------------------------------------------------------------------
+// DAILY EMAIL BACKUP (Gmail)
+// ---------------------------------------------------------------------
+// Settings are kept in config/mail.php (NOT in the database), so the
+// Gmail App Password is never put inside a backup file or an email.
+
+function mail_config_file(): string
+{
+    return APP_ROOT . '/config/mail.php';
+}
+
+// Read the email backup settings
+function mail_config(): array
+{
+    $defaults = ['enabled' => false, 'gmail' => '', 'app_password' => '', 'send_to' => '', 'send_hour' => 20];
+    $file = mail_config_file();
+    if (function_exists('opcache_invalidate') && is_file($file)) {
+        opcache_invalidate($file, true);    // always read the newest saved settings
+    }
+    $saved = is_file($file) ? include $file : [];
+    return array_merge($defaults, is_array($saved) ? $saved : []);
+}
+
+// Save the email backup settings
+function save_mail_config(array $config): void
+{
+    $php = "<?php\n// Email backup settings - written by Backup & Restore > Email Backup.\n"
+         . "// Keep this file private: it contains the Gmail App Password.\nreturn " . var_export($config, true) . ";\n";
+    if (file_put_contents(mail_config_file(), $php, LOCK_EX) === false) {
+        throw new RuntimeException('Could not write config/mail.php');
+    }
+    if (function_exists('opcache_invalidate')) {
+        opcache_invalidate(mail_config_file(), true);
+    }
+}
+
+// Is it time to send today's email backup?
+function email_backup_due(?array $config = null, bool $ignoreHour = false): bool
+{
+    $config = $config ?? mail_config();
+    if (!$config['enabled'] || $config['gmail'] === '' || $config['app_password'] === '') {
+        return false;
+    }
+    if (setting('email_backup_last_date') === date('Y-m-d')) {
+        return false;                                   // already sent today
+    }
+    if (!$ignoreHour && (int)date('G') < (int)$config['send_hour']) {
+        return false;                                   // too early today
+    }
+    // After a failed try, wait 1 hour before trying again
+    $lastTry = strtotime(setting('email_backup_last_attempt', '')) ?: 0;
+    return time() - $lastTry >= 3600;
+}
+
+// Create a backup and email it. Returns [true/false, message].
+// $force = send now even if already sent today (the "Send test now" button)
+function run_email_backup(PDO $pdo, bool $ignoreHour = false, bool $force = false): array
+{
+    global $SETTINGS;
+    require_once APP_ROOT . '/includes/mailer.php';
+    $config = mail_config();
+    if ($config['gmail'] === '' || $config['app_password'] === '') {
+        return [false, 'Enter the Gmail address and App Password first.'];
+    }
+
+    // Only one send at a time (two open pages could try together)
+    if (!(int)db_value($pdo, "SELECT GET_LOCK('nadiif_email_backup', 0)")) {
+        return [false, 'An email backup is already being sent.'];
+    }
+    $gzPath = null;
+    try {
+        $SETTINGS = load_settings($pdo);                // fresh values (another page may have just sent it)
+        if (!$force && !email_backup_due($config, $ignoreHour)) {
+            return [false, 'Not due.'];
+        }
+        save_setting($pdo, 'email_backup_last_attempt', date('Y-m-d H:i:s'));
+
+        // Create database backup, then compress it (much smaller email)
+        $file = create_backup($pdo, 'auto');
+        $gzPath = backup_dir() . '/uploads/' . $file . '.gz';
+        file_put_contents($gzPath, gzencode((string)file_get_contents(backup_dir() . '/' . $file), 9));
+        if (filesize($gzPath) > 18 * 1024 * 1024) {
+            throw new RuntimeException('The backup is too large for Gmail (limit 25 MB). Download it from Backup & Restore instead.');
+        }
+
+        $to = $config['send_to'] !== '' ? $config['send_to'] : $config['gmail'];
+        $business = setting('business_name', 'NADIIF LAUNDRY');
+        $text = "Daily backup of $business.\r\n\r\n"
+              . 'Created: ' . date('d M Y H:i') . "\r\nFile: $file.gz\r\n\r\n"
+              . "To restore: unzip the .gz file (7-Zip or WinRAR) to get the .sql file, then open\r\n"
+              . "Backup & Restore > UPLOAD BACKUP in the system.\r\n\r\n"
+              . "Keep this email private: it contains all business data.\r\n";
+        // smtp_host / smtp_port can be added by hand in config/mail.php to use another provider
+        smtp_send($config, $to, $business . ' - daily backup ' . date('Y-m-d'), $text, $gzPath, $file . '.gz',
+            ['host' => $config['smtp_host'] ?? 'smtp.gmail.com', 'port' => $config['smtp_port'] ?? 587]);
+
+        save_setting($pdo, 'email_backup_last_date', date('Y-m-d'));
+        save_setting($pdo, 'email_backup_last_success', date('Y-m-d H:i:s'));
+        save_setting($pdo, 'email_backup_last_message', 'Sent to ' . $to . ' (' . human_size((int)filesize($gzPath)) . ')');
+        delete_old_auto_backups(14);
+        return [true, 'Backup emailed to ' . $to . '.'];
+    } catch (Throwable $e) {
+        error_log('Email backup failed: ' . $e->getMessage());
+        $message = $e instanceof RuntimeException ? $e->getMessage() : 'Unexpected error (see the PHP error log).';
+        save_setting($pdo, 'email_backup_last_message', 'FAILED ' . date('d M Y H:i') . ': ' . $message);
+        return [false, $message];
+    } finally {
+        if ($gzPath && is_file($gzPath)) {
+            unlink($gzPath);
+        }
+        db_value($pdo, "SELECT RELEASE_LOCK('nadiif_email_backup')");
+    }
+}
+
+// Keep only the newest automatic backups on this computer
+function delete_old_auto_backups(int $keep): void
+{
+    $auto = array_values(array_filter(list_backups(), function ($b) {
+        return strpos($b['name'], 'nadiif_laundry_auto_') === 0;
+    }));
+    foreach (array_slice($auto, $keep) as $old) {
+        unlink(backup_dir() . '/' . $old['name']);
     }
 }

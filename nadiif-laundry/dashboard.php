@@ -78,6 +78,19 @@ require __DIR__ . '/includes/header.php';
     </div>
 <?php endif; ?>
 
+<?php
+// Warn when the daily email backup is switched on but is not working
+$mailConfig = mail_config();
+$lastEmail = strtotime(setting('email_backup_last_success', '')) ?: 0;
+$emailProblem = $mailConfig['enabled'] && (strpos(setting('email_backup_last_message'), 'FAILED') === 0 || ($lastEmail && $lastEmail < strtotime('-2 days')));
+?>
+<?php if ($emailProblem): ?>
+    <div class="alert alert-danger d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span><i class="bi bi-envelope-exclamation"></i> The daily email backup is not working. Last successful email: <?= $lastEmail ? show_datetime(date('Y-m-d H:i:s', $lastEmail)) : 'never' ?>.</span>
+        <a class="btn btn-sm btn-danger" href="<?= url('backup/email.php') ?>">Check Email Backup</a>
+    </div>
+<?php endif; ?>
+
 <div class="section-title">Financial Summary</div>
 <div class="row g-3">
     <?= stat_card("Today's Income", money($todayIncome), 'bi-graph-up-arrow', 'green') ?>
